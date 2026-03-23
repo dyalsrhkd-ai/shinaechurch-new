@@ -85,12 +85,14 @@ const notices = [
   { date: '02.20', title: '교회 창립 43주년 기념예배 안내',         badge: '공지' },
 ]
 
+const FILE_BASE = 'http://www.shinaechurch.co.kr/wi_files/pds_files/'
+
 const bulletins = [
-  '2026년 3월 22일',
-  '2026년 3월 15일',
-  '2026년 3월  8일',
-  '2026년 3월  1일',
-  '2026년 2월 22일',
+  { label: '2026년 3월 22일', file: '1008.hwp' },
+  { label: '2026년 3월 15일', file: '1001.hwp' },
+  { label: '2026년 3월  8일', file: '997.hwp' },
+  { label: '2026년 3월  1일', file: '996.hwp' },
+  { label: '2026년 2월 22일', file: '991.hwp' },
 ]
 
 const depts = [
@@ -333,19 +335,22 @@ export default function Home() {
             <ul style={{ listStyle: 'none' }}>
               {bulletins.map((b, i) => (
                 <li key={i} style={{ borderBottom: '1px solid #f0f2f5' }}>
-                  <button
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                  <a
+                    href={FILE_BASE + b.file}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', textDecoration: 'none', transition: 'opacity 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
                     onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                   >
                     <div style={{ flexShrink: 0, width: '36px', height: '36px', borderRadius: '8px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="16" height="16" fill="#dc2626" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
                     </div>
-                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: '#1e3a5f' }}>{b} 주보</span>
+                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: '#1e3a5f' }}>{b.label} 주보</span>
                     <div style={{ flexShrink: 0, width: '32px', height: '32px', borderRadius: '8px', background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
