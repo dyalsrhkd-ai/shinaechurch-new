@@ -81,15 +81,39 @@ a:hover img { transform: scale(1.05); }
   border-radius: 9999px !important;
 }
 
+@media (max-width: 900px) {
+  /* 서브 레이아웃 사이드바 → 상단 수평 탭 */
+  .sub-grid { grid-template-columns: 1fr !important; }
+  .sub-grid aside { position: static !important; }
+  /* 푸터 2열 */
+  .footer-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .footer-grid > div:first-child { grid-column: span 2 !important; }
+}
+
 @media (max-width: 768px) {
   /* 레이어 카드 모바일 3열 */
   .layer-grid { grid-template-columns: repeat(3, 1fr) !important; }
-  /* 설교 카드 1열 */
-  .sermon-grid { grid-template-columns: 1fr !important; }
+  /* 설교 카드 2열 */
+  .sermon-grid { grid-template-columns: repeat(2, 1fr) !important; }
   /* 부서 카드 2열 */
   .dept-grid { grid-template-columns: repeat(2, 1fr) !important; }
   /* 공지/주보 1열 */
   .split-grid { grid-template-columns: 1fr !important; gap: 40px !important; }
   /* 오시는길 1열 */
   .location-grid { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  /* 레이어 카드 2열 */
+  .layer-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  /* 설교/갤러리 1열 */
+  .sermon-grid { grid-template-columns: 1fr !important; }
+  /* 부서 카드 1열 */
+  .dept-grid { grid-template-columns: 1fr !important; }
+  /* 푸터 1열 */
+  .footer-grid { grid-template-columns: 1fr !important; }
+  .footer-grid > div:first-child { grid-column: span 1 !important; }
+  /* 히어로 텍스트 여백 */
+  .hero-swiper .swiper-button-next,
+  .hero-swiper .swiper-button-prev { display: none !important; }
 }

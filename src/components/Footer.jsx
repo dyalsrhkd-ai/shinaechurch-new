@@ -54,6 +54,7 @@ export default function Footer() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
         {/* 상단 */}
         <div
+          className="footer-grid"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(6, 1fr)',
@@ -115,16 +116,6 @@ export default function Footer() {
         </div>
       </div>
 
-      <style>{`
-        @media (max-width: 900px) {
-          footer [style*="grid-template-columns: repeat(6"] {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-          footer [style*="grid-template-columns: repeat(6"] > div:first-child {
-            grid-column: span 2 !important;
-          }
-        }
-      `}</style>
     </footer>
   )
 }

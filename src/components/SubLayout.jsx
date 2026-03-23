@@ -53,7 +53,8 @@ export default function SubLayout({ section, menus, title, children }) {
           gridTemplateColumns: '200px 1fr',
           gap: '40px',
           alignItems: 'start',
-        }}>
+        }}
+        className="sub-grid">
 
           {/* 사이드 메뉴 */}
           <aside
@@ -108,11 +109,6 @@ export default function SubLayout({ section, menus, title, children }) {
         </div>
       </div>
 
-      <style>{`
-        @media (max-width: 768px) {
-          .sub-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   )
 }

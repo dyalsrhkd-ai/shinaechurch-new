@@ -126,7 +126,7 @@ export default function Choir() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '48px' }}>
+      <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '48px' }}>
         {videos.slice(1).map((v, i) => (
           <div
             key={i}
@@ -163,7 +163,7 @@ export default function Choir() {
           <div style={{ width: '4px', height: '20px', background: '#059669', borderRadius: '4px' }} />
           사진 앨범
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+        <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
           {albums.map((a, i) => (
             <div
               key={i}

@@ -115,7 +115,7 @@ export default function Sunday() {
       )}
 
       {/* 설교 그리드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
+      <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
         {gridSermons.map((s, i) => (
           <SermonCard key={i} s={s} onClick={() => setModal(s)} />
         ))}

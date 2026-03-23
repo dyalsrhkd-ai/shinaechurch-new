@@ -194,6 +194,7 @@ export default function Home() {
               boxShadow: '0 12px 60px rgba(0,0,0,0.18)',
               overflow: 'hidden',
             }}
+            className="layer-grid"
           >
             {quickCards.map((c, i) => (
               <Link
@@ -239,7 +240,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+          <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
             {sermons.map((s, i) => (
               <a
                 key={i}
@@ -284,7 +285,7 @@ export default function Home() {
           § 3  공지사항 + 주보
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section style={{ background: '#fff', padding: '80px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px' }}>
+        <div className="split-grid" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px' }}>
 
           {/* 공지사항 */}
           <div>
@@ -372,7 +373,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+          <div className="dept-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
             {depts.map((d, i) => (
               <Link
                 key={d.to}
@@ -397,7 +398,7 @@ export default function Home() {
           § 5  오시는길 (다크 섹션)
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section style={{ background: '#0f2040', padding: '80px 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'center' }}>
+        <div className="location-grid" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'center' }}>
 
           {/* 지도 */}
           <HomeMap />

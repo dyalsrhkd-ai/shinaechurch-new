@@ -303,7 +303,7 @@ export default function Gallery() {
   return (
     <SubLayout section="교제와 나눔" menus={menus} title="행사갤러리">
       <div style={{ marginBottom: '12px', fontSize: '0.82rem', color: '#9ca3af', textAlign: 'right' }}>전체 {photos.length}장</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+      <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
         {slice.map((p, i) => {
           const globalIdx = (page - 1) * PER_PAGE + i
           return (

@@ -79,7 +79,7 @@ export default function Special() {
       </div>
 
       {/* 설교 그리드 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+      <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
         {sermons.slice(1).map((s, i) => (
           <div
             key={i}
