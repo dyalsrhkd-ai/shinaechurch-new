@@ -25,10 +25,8 @@ const staff = [
       { name: '김해림 목사',   role: '부목사',       img: '/images/corp_new/mem6.jpg' },
       { name: '김영단 전도사', role: '행정전도사',    img: '/images/corp_new/mem3.jpg' },
       { name: '유영희 전도사', role: '심방전도사',    img: '/images/corp_new/mem9.jpg' },
-      { name: '우정수 전도사', role: '전도사',        img: '/images/corp/man_blank.jpg' },
       { name: '한정욱 전도사', role: '전도사',        img: '/images/corp_new/mem11.jpg' },
       { name: '김요셉 전도사', role: '아동부전도사',  img: '/images/corp_new/mem5.jpg' },
-      { name: '이평자 전도사', role: '은퇴전도사',    img: '/images/corp/man5.jpg' },
     ],
   },
   {
@@ -39,19 +37,7 @@ const staff = [
       { name: '문옥희 장로', role: '은퇴장로', img: '/images/corp_new/mem7.jpg' },
       { name: '김영옥 장로', role: '장로',     img: '/images/corp_new/mem4.jpg' },
       { name: '윤여균 장로', role: '장로',     img: '/images/corp_new/mem10.jpg' },
-      { name: '윤복남 장로', role: '장로',     img: '/images/corp/man10.jpg' },
       { name: '김강석 장로', role: '장로',     img: '/images/corp_new/mem2.jpg' },
-    ],
-  },
-  {
-    group: '직원',
-    color: '#059669',
-    members: [
-      { name: '직원',  role: '직원', img: '/images/corp/man12.jpg' },
-      { name: '직원',  role: '직원', img: '/images/corp/man13.jpg' },
-      { name: '직원',  role: '직원', img: '/images/corp/man15.jpg' },
-      { name: '직원',  role: '직원', img: '/images/corp/man101.jpg' },
-      { name: '직원',  role: '직원', img: '/images/corp/man16.jpg' },
     ],
   },
 ]
