@@ -39,11 +39,10 @@ const buildings = [
     floors: [
       { floor: '1층', rooms: ['대예배실', '담임목사실', '에스더사랑방', '주차장'] },
       { floor: '2층', rooms: ['소예배실', '성가대 연습실', '사무실', '교육부 사무실'] },
-      { floor: '3층', rooms: ['남전도회실', '권사회실', '여전도회실', '다목적실'] },
     ],
   },
   {
-    name: '별관 (이레벨)',
+    name: '별관 (이례빌)',
     color: '#0369a1',
     icon: (
       <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
@@ -54,19 +53,6 @@ const buildings = [
       { floor: '101호', rooms: ['재정부실', '전도부실', '새신자반'] },
       { floor: '201호', rooms: ['담임목사 사택'] },
       { floor: '301호', rooms: ['교역자실'] },
-    ],
-  },
-  {
-    name: '교육관',
-    color: '#7c3aed',
-    icon: (
-      <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-        <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
-      </svg>
-    ),
-    floors: [
-      { floor: '1층', rooms: ['아동부실', '중·고등부실', '청년부실'] },
-      { floor: '2층', rooms: ['대학청년부실', '성경대학실', '교사실'] },
     ],
   },
 ]
