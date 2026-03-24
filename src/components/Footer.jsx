@@ -104,15 +104,24 @@ export default function Footer() {
         </div>
 
         {/* 하단 카피라이트 */}
-        <div style={{ padding: '28px 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <address style={{ fontStyle: 'normal', fontSize: '0.75rem', color: 'rgba(255,255,255,0.2)', lineHeight: 1.8 }}>
-            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>신애교회</span>
+        <div style={{ padding: '28px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <address style={{ fontStyle: 'normal', fontSize: '0.78rem', color: 'rgba(255,255,255,0.3)', lineHeight: 2 }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>신애교회</span>
             &nbsp;&nbsp;|&nbsp;&nbsp;대표 : 우용녀 목사
-            &nbsp;&nbsp;|&nbsp;&nbsp;경기도 의왕시 왕곡로 187번지 (왕곡동)
-            &nbsp;&nbsp;|&nbsp;&nbsp;031-429-4557
-            &nbsp;&nbsp;|&nbsp;&nbsp;shinaechurch@naver.com
+            &nbsp;&nbsp;|&nbsp;&nbsp;개인정보관리 : 김영단
+            &nbsp;&nbsp;|&nbsp;&nbsp;주소 : 경기도 의왕시 왕곡로 187번지 (왕곡동)
+            <br />
+            전화 : 031-429-4557
+            &nbsp;&nbsp;|&nbsp;&nbsp;팩스 : 031-429-4557
+            &nbsp;&nbsp;|&nbsp;&nbsp;이메일 :&nbsp;
+            <a href="mailto:shinaechurch@naver.com" style={{ color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+              onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+            >shinaechurch@naver.com</a>
           </address>
-          <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.15)' }}>© 2026 신애교회</p>
+          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.15)' }}>
+            Copyright © shinaechurch. All rights reserved.
+          </p>
         </div>
       </div>
 
