@@ -50,7 +50,19 @@ const buildings = [
       </svg>
     ),
     floors: [
-      { floor: '101호', rooms: ['재정부실', '전도부실', '새신자반', '식당'] },
+      { floor: '101호', rooms: ['재정부실', '전도부실', '새신자반'] },
+    ],
+  },
+  {
+    name: '별관',
+    color: '#7c3aed',
+    icon: (
+      <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinejoin="round"/>
+      </svg>
+    ),
+    floors: [
+      { floor: '1층', rooms: ['식당'] },
     ],
   },
 ]
@@ -139,7 +151,7 @@ export default function Facility() {
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinejoin="round"/>
               <path d="M12 2C8 6 4 8 4 13a8 8 0 0016 0c0-5-4-7-8-11z" strokeLinejoin="round"/>
             </svg>
-            <h3 style={{ fontWeight: 800, fontSize: '0.95rem' }}>야외 시설</h3>
+            <h3 style={{ fontWeight: 800, fontSize: '0.95rem' }}>부속 시설</h3>
           </div>
           <div style={{ padding: '16px 18px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {['농장 (과수원·텃밭)', '교회 앞 연못', '주차장 (교회 전용)', '25인승 버스', '해남수련관'].map(f => (
