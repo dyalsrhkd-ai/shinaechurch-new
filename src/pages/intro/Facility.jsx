@@ -114,6 +114,24 @@ export default function Facility() {
           ))}
         </div>
 
+        {/* 부속 시설 */}
+        <div style={{ border: '1px solid #eaecf0', borderRadius: '14px', overflow: 'hidden' }}>
+          <div style={{ background: '#059669', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px', color: '#fff' }}>
+            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinejoin="round"/>
+              <path d="M12 2C8 6 4 8 4 13a8 8 0 0016 0c0-5-4-7-8-11z" strokeLinejoin="round"/>
+            </svg>
+            <h3 style={{ fontWeight: 800, fontSize: '0.95rem' }}>부속 시설</h3>
+          </div>
+          <div style={{ padding: '16px 18px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {['농장 (과수원·텃밭)', '교회 앞 연못', '주차장 (교회 전용)', '25인승 버스', '해남수련관'].map(f => (
+              <span key={f} style={{ fontSize: '0.8rem', color: '#374151', background: '#f0f2f5', padding: '3px 10px', borderRadius: '9999px', fontWeight: 500 }}>
+                {f}
+              </span>
+            ))}
+          </div>
+        </div>
+
         {/* 시설 사진 갤러리 */}
         <div style={{ borderTop: '1px solid #f0f2f5', paddingTop: '36px' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f2040', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -144,23 +162,6 @@ export default function Facility() {
           </div>
         </div>
 
-        {/* 야외 시설 */}
-        <div style={{ marginTop: '32px', border: '1px solid #eaecf0', borderRadius: '14px', overflow: 'hidden' }}>
-          <div style={{ background: '#059669', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px', color: '#fff' }}>
-            <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" strokeLinejoin="round"/>
-              <path d="M12 2C8 6 4 8 4 13a8 8 0 0016 0c0-5-4-7-8-11z" strokeLinejoin="round"/>
-            </svg>
-            <h3 style={{ fontWeight: 800, fontSize: '0.95rem' }}>부속 시설</h3>
-          </div>
-          <div style={{ padding: '16px 18px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {['농장 (과수원·텃밭)', '교회 앞 연못', '주차장 (교회 전용)', '25인승 버스', '해남수련관'].map(f => (
-              <span key={f} style={{ fontSize: '0.8rem', color: '#374151', background: '#f0f2f5', padding: '3px 10px', borderRadius: '9999px', fontWeight: 500 }}>
-                {f}
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* 라이트박스 */}
