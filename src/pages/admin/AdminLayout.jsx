@@ -99,7 +99,11 @@ export default function AdminLayout({ children }) {
     .map(group => ({
       ...group,
       items: group.items.filter(item => {
-        return matchesMenuKeyword(normalizedMenuKeyword, item.label)
+        return matchesMenuKeyword(
+          normalizedMenuKeyword,
+          item.label,
+          ...(item.keywords || [])
+        )
       }),
     }))
     .filter(group => group.items.length > 0)
