@@ -90,6 +90,7 @@ export default function FarmManager() {
         managerRole: info.managerRole.trim(),
         updatedAt: serverTimestamp(),
       })
+      window.dispatchEvent(new Event('admin:changes-saved'))
       alert('저장되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setSaving(false)

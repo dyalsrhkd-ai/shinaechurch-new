@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
+import { claimAdminUserSession } from '../../utils/adminSession'
 
 export default function Login() {
   const [id, setId] = useState('')
@@ -9,6 +11,9 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { sessionConflict } = useAuth()
+
+  const visibleError = error || sessionConflict
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -16,7 +21,13 @@ export default function Login() {
     setLoading(true)
     try {
       const email = `${id}@shinaechurch.com`
-      await signInWithEmailAndPassword(auth, email, password)
+      const credential = await signInWithEmailAndPassword(auth, email, password)
+      const claim = await claimAdminUserSession(credential.user)
+      if (!claim.ok) {
+        await signOut(auth)
+        setError('계정이 이미 사용중입니다.')
+        return
+      }
       navigate('/admin/dashboard')
     } catch {
       setError('아이디 또는 비밀번호가 올바르지 않습니다.')
@@ -62,8 +73,8 @@ export default function Login() {
             />
           </div>
 
-          {error && (
-            <p style={{ fontSize: '0.8rem', color: '#dc2626', background: '#fee2e2', padding: '10px 14px', borderRadius: '8px' }}>{error}</p>
+          {visibleError && (
+            <p style={{ fontSize: '0.8rem', color: '#dc2626', background: '#fee2e2', padding: '10px 14px', borderRadius: '8px' }}>{visibleError}</p>
           )}
 
           <button

@@ -155,6 +155,7 @@ export default function FacilityManager() {
       updatedAt: serverTimestamp(),
     })
     await fetchData()
+    window.dispatchEvent(new Event('admin:changes-saved'))
   }
 
   // ── 히어로 이미지 업로드 ──────────────────────
@@ -177,6 +178,7 @@ export default function FacilityManager() {
         updatedAt: serverTimestamp(),
       })
       await fetchData()
+      window.dispatchEvent(new Event('admin:changes-saved'))
       alert('대표 사진이 업데이트되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setUploadingHero(false)

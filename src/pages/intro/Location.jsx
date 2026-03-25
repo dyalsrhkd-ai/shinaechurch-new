@@ -67,6 +67,7 @@ export default function Location() {
   )
 
   const kakaoMapUrl = data?.kakaoMapUrl || 'https://map.kakao.com/link/search/경기도 의왕시 왕곡로 187번지'
+  const naverMapUrl = data?.naverMapUrl || ''
   const mapEmbedUrl = data?.mapEmbedUrl || ''
   const transportSections = data?.transportSections || []
 
@@ -151,13 +152,24 @@ export default function Location() {
               </div>
             ))}
 
-            {kakaoMapUrl && (
-              <a href={kakaoMapUrl} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', background: '#FEE500', color: '#1a1a1a', borderRadius: '9999px', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none', alignSelf: 'flex-start' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                카카오맵으로 길찾기
-              </a>
-            )}
+            {(kakaoMapUrl || naverMapUrl) ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {kakaoMapUrl ? (
+                  <a href={kakaoMapUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', background: '#FEE500', color: '#1a1a1a', borderRadius: '9999px', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none', alignSelf: 'flex-start' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    카카오맵으로 길찾기
+                  </a>
+                ) : null}
+                {naverMapUrl ? (
+                  <a href={naverMapUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', background: '#03c75a', color: '#fff', borderRadius: '9999px', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none', alignSelf: 'flex-start' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 900 }}>N</span>
+                    네이버지도로 길찾기
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

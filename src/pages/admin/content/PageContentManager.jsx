@@ -206,6 +206,7 @@ export default function PageContentManager({ title, description, pages }) {
         deptGroups: pageState.deptGroups || [],
         updatedAt: serverTimestamp(),
       }, { merge: true })
+      window.dispatchEvent(new Event('admin:changes-saved'))
       alert('저장되었습니다.')
     } catch (error) {
       alert(`저장 중 오류가 발생했습니다: ${error.message}`)

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
+import { useAdminRouteLock } from '../../hooks/useAdminRouteLock'
 import { MENU_GROUPS } from './menuItems'
 import { getVisitorSummary } from '../../utils/visitorAnalytics'
 
@@ -27,6 +28,7 @@ export default function AdminLayout({ children }) {
   const { user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const contentRef = useRef(null)
   const timeoutRef = useRef(null)
   const deadlineRef = useRef(0)
   const expiredRef = useRef(false)
@@ -35,6 +37,7 @@ export default function AdminLayout({ children }) {
   const [favs, setFavs] = useState(() => loadFavs(uid))
   const [hoveredPath, setHoveredPath] = useState(null)
   const [remainingMs, setRemainingMs] = useState(SESSION_TIMEOUT_MS)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [visitorStats, setVisitorStats] = useState({
     todayVisits: 0,
     weekVisits: 0,
@@ -42,6 +45,12 @@ export default function AdminLayout({ children }) {
     yearVisits: 0,
     totalVisits: 0,
   })
+  const routeLock = useAdminRouteLock({ pathname: location.pathname, user })
+  const shouldWarnUnsaved = Boolean(
+    hasUnsavedChanges &&
+    location.pathname !== '/admin/login' &&
+    location.pathname !== '/admin/dashboard'
+  )
 
   const toggleFav = (e, path) => {
     e.preventDefault()
@@ -52,9 +61,97 @@ export default function AdminLayout({ children }) {
   }
 
   const handleLogout = async () => {
+    setHasUnsavedChanges(false)
     await signOut(auth)
     navigate('/admin/login')
   }
+
+  useEffect(() => {
+    setHasUnsavedChanges(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const markSaved = () => setHasUnsavedChanges(false)
+    window.addEventListener('admin:changes-saved', markSaved)
+    return () => {
+      window.removeEventListener('admin:changes-saved', markSaved)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!shouldWarnUnsaved) return undefined
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [shouldWarnUnsaved])
+
+  useEffect(() => {
+    if (!shouldWarnUnsaved) return undefined
+
+    const handleDocumentClick = (event) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+
+      const anchor = target.closest('a')
+      if (!(anchor instanceof HTMLAnchorElement)) return
+      if (anchor.target === '_blank' || anchor.hasAttribute('download')) return
+
+      const href = anchor.getAttribute('href') || ''
+      if (!href || href === '#') return
+
+      const confirmed = window.confirm('저장되지 않은 수정 내용이 있습니다. 이동하면 현재 수정 중인 내용은 초기화됩니다. 계속하시겠습니까?')
+      if (!confirmed) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
+
+      setHasUnsavedChanges(false)
+    }
+
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => {
+      document.removeEventListener('click', handleDocumentClick, true)
+    }
+  }, [shouldWarnUnsaved])
+
+  useEffect(() => {
+    const root = contentRef.current
+    if (!root || routeLock.isLockedByOther || routeLock.isChecking) return undefined
+
+    const markDirty = (event) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) return
+
+      if (event.type === 'click') {
+        const button = target.closest('button')
+        if (!button) return
+
+        const buttonText = (button.textContent || '').trim()
+        const shouldMarkButton = /추가|삭제|선택|등록|저장|수정|업데이트|완료|변경/.test(buttonText)
+        if (!shouldMarkButton) return
+      }
+
+      setHasUnsavedChanges(true)
+    }
+
+    root.addEventListener('input', markDirty, true)
+    root.addEventListener('change', markDirty, true)
+    root.addEventListener('click', markDirty, true)
+
+    return () => {
+      root.removeEventListener('input', markDirty, true)
+      root.removeEventListener('change', markDirty, true)
+      root.removeEventListener('click', markDirty, true)
+    }
+  }, [routeLock.isChecking, routeLock.isLockedByOther, location.pathname])
 
   useEffect(() => {
     if (!user) return undefined
@@ -299,8 +396,69 @@ export default function AdminLayout({ children }) {
           </Link>
         </div>
 
-        <div style={{ padding: '32px' }}>
-          {children}
+        <div ref={contentRef} style={{ padding: '32px', position: 'relative' }}>
+          {routeLock.enabled ? (
+            <div style={{
+              marginBottom: '20px',
+              borderRadius: '14px',
+              border: routeLock.isLockedByOther ? '1px solid #fecaca' : routeLock.hasError ? '1px solid #fde68a' : '1px solid #bfdbfe',
+              background: routeLock.isLockedByOther ? '#fef2f2' : routeLock.hasError ? '#fffbeb' : '#eff6ff',
+              padding: '14px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}>
+              <div>
+                <p style={{ fontSize: '0.84rem', fontWeight: 800, color: routeLock.isLockedByOther ? '#b91c1c' : routeLock.hasError ? '#92400e' : '#1d4ed8' }}>
+                  {routeLock.isChecking
+                    ? '편집 잠금을 확인하는 중입니다.'
+                    : routeLock.isLockedByOther
+                      ? '다른 관리자가 이 페이지를 편집 중입니다.'
+                      : routeLock.hasError
+                        ? '편집 잠금 상태를 확인하지 못했습니다.'
+                        : '현재 이 페이지 편집 잠금을 보유 중입니다.'}
+                </p>
+                {routeLock.isLockedByOther && routeLock.lockOwner?.email ? (
+                  <p style={{ fontSize: '0.76rem', color: '#7f1d1d', marginTop: '4px' }}>
+                    편집 중 관리자: {routeLock.lockOwner.email}
+                  </p>
+                ) : null}
+                {routeLock.isLockedByMe ? (
+                  <p style={{ fontSize: '0.76rem', color: '#1e40af', marginTop: '4px' }}>
+                    이 페이지는 현재 본인만 수정할 수 있습니다.
+                  </p>
+                ) : null}
+              </div>
+              {routeLock.isLockedByOther && routeLock.lockOwner?.expiresAt ? (
+                <span style={{ fontSize: '0.74rem', color: '#991b1b', fontWeight: 700 }}>
+                  잠금 만료 예정: {new Date(routeLock.lockOwner.expiresAt).toLocaleTimeString()}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {shouldWarnUnsaved ? (
+            <div style={{
+              marginBottom: '20px',
+              borderRadius: '14px',
+              border: '1px solid #fde68a',
+              background: '#fffbeb',
+              padding: '12px 16px',
+            }}>
+              <p style={{ fontSize: '0.82rem', fontWeight: 800, color: '#92400e' }}>저장되지 않은 수정 내용이 있습니다.</p>
+              <p style={{ fontSize: '0.76rem', color: '#b45309', marginTop: '4px' }}>다른 메뉴로 이동하면 현재 수정 중이던 내용은 초기화됩니다.</p>
+            </div>
+          ) : null}
+
+          <div style={{
+            position: 'relative',
+            opacity: routeLock.isLockedByOther || routeLock.isChecking ? 0.55 : 1,
+            pointerEvents: routeLock.isLockedByOther || routeLock.isChecking ? 'none' : 'auto',
+          }}>
+            {children}
+          </div>
         </div>
       </main>
     </div>

@@ -8,6 +8,7 @@ export default function LocationManager() {
 
   const [mapEmbedUrl, setMapEmbedUrl] = useState('')
   const [kakaoMapUrl, setKakaoMapUrl] = useState('')
+  const [naverMapUrl, setNaverMapUrl] = useState('')
   const [transportSections, setTransportSections] = useState([])
 
   const fetchData = async () => {
@@ -18,6 +19,7 @@ export default function LocationManager() {
         const d = snap.data()
         setMapEmbedUrl(d.mapEmbedUrl || '')
         setKakaoMapUrl(d.kakaoMapUrl || '')
+        setNaverMapUrl(d.naverMapUrl || '')
         setTransportSections(d.transportSections || [])
       }
     } catch (e) { console.error(e) }
@@ -32,10 +34,12 @@ export default function LocationManager() {
       await setDoc(doc(db, 'location', 'main'), {
         mapEmbedUrl: mapEmbedUrl.trim(),
         kakaoMapUrl: kakaoMapUrl.trim(),
+        naverMapUrl: naverMapUrl.trim(),
         transportSections,
         updatedAt: serverTimestamp(),
       })
       await fetchData()
+      window.dispatchEvent(new Event('admin:changes-saved'))
       alert('저장되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setSaving(false)
@@ -102,6 +106,12 @@ export default function LocationManager() {
           <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: '4px' }}>카카오맵 길찾기 URL</label>
           <input value={kakaoMapUrl} onChange={e => setKakaoMapUrl(e.target.value)}
             placeholder="https://map.kakao.com/link/search/..."
+            style={{ width: '100%', padding: '9px 11px', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '0.82rem', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+        </div>
+        <div style={{ marginTop: '12px' }}>
+          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: '4px' }}>네이버지도 길찾기 URL</label>
+          <input value={naverMapUrl} onChange={e => setNaverMapUrl(e.target.value)}
+            placeholder="https://map.naver.com/..."
             style={{ width: '100%', padding: '9px 11px', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '0.82rem', boxSizing: 'border-box', fontFamily: 'monospace' }} />
         </div>
       </div>

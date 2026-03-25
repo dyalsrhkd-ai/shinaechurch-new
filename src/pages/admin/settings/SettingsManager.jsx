@@ -62,6 +62,7 @@ export default function SettingsManager() {
         tagline: tagline.trim(),
         updatedAt: serverTimestamp(),
       })
+      window.dispatchEvent(new Event('admin:changes-saved'))
       alert('저장되었습니다. 홈페이지 새로고침 시 반영됩니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setSaving(false)

@@ -62,6 +62,7 @@ export default function GreetingManager() {
       updatedAt: serverTimestamp(),
     })
     await fetchData()
+    window.dispatchEvent(new Event('admin:changes-saved'))
   }
 
   const handleSave = async () => {
