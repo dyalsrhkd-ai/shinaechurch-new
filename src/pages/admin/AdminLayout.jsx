@@ -8,6 +8,9 @@ import { MENU_GROUPS } from './menuItems'
 import { getVisitorSummary } from '../../utils/visitorAnalytics'
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000
+const HANGUL_BASE = 0xac00
+const HANGUL_END = 0xd7a3
+const CHOSEONG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
 
 function getFavKey(uid) { return `shinae_fav_${uid}` }
 function loadFavs(uid) {
@@ -15,6 +18,30 @@ function loadFavs(uid) {
 }
 function saveFavs(uid, favs) {
   localStorage.setItem(getFavKey(uid), JSON.stringify(favs))
+}
+
+function getInitialConsonants(text) {
+  return Array.from(text || '')
+    .map((char) => {
+      const code = char.charCodeAt(0)
+      if (code >= HANGUL_BASE && code <= HANGUL_END) {
+        return CHOSEONG[Math.floor((code - HANGUL_BASE) / 588)] || char
+      }
+      return char
+    })
+    .join('')
+}
+
+function matchesMenuKeyword(keyword, ...values) {
+  const normalizedKeyword = (keyword || '').trim().toLowerCase()
+  if (!normalizedKeyword) return true
+
+  return values.some((value) => {
+    const safeValue = String(value || '')
+    const lowered = safeValue.toLowerCase()
+    const initials = getInitialConsonants(safeValue).toLowerCase()
+    return lowered.includes(normalizedKeyword) || initials.includes(normalizedKeyword)
+  })
 }
 
 function formatRemainingTime(milliseconds) {
@@ -72,9 +99,12 @@ export default function AdminLayout({ children }) {
     .map(group => ({
       ...group,
       items: group.items.filter(item => {
-        if (!normalizedMenuKeyword) return true
-        const haystack = `${item.label} ${item.desc || ''} ${group.label}`.toLowerCase()
-        return haystack.includes(normalizedMenuKeyword)
+        return matchesMenuKeyword(
+          normalizedMenuKeyword,
+          item.label,
+          item.desc,
+          group.label
+        )
       }),
     }))
     .filter(group => group.items.length > 0)
@@ -326,7 +356,7 @@ export default function AdminLayout({ children }) {
                 placeholder="메뉴 검색"
                 style={{
                   width: '100%',
-                  padding: '10px 12px 10px 36px',
+                  padding: '10px 12px',
                   borderRadius: '10px',
                   border: '1px solid rgba(255,255,255,0.08)',
                   background: 'rgba(255,255,255,0.06)',
@@ -335,9 +365,6 @@ export default function AdminLayout({ children }) {
                   outline: 'none',
                 }}
               />
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>
-                검색
-              </span>
             </div>
           </div>
 
