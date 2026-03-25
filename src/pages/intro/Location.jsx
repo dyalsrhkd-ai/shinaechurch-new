@@ -3,7 +3,8 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
-import { renderDaumRoughmap } from '../../utils/daumRoughmap'
+import MapPlaceholderNotice from '../../components/ui/MapPlaceholderNotice'
+import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
 const menus = [
   { label: '인사말',         path: '/intro/greeting' },
@@ -14,39 +15,6 @@ const menus = [
   { label: '오시는길',       path: '/intro/location' },
   { label: '교회시설물 안내', path: '/intro/facility' },
 ]
-
-function DaumMap() {
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    renderDaumRoughmap({
-      containerId: 'daumRoughmapContainer1535262039184',
-      timestamp: '1535262039184',
-      key: 'pp3p',
-      mapWidth: '100%',
-      mapHeight: '440',
-    }).catch(error => {
-      console.error(error)
-      setFailed(true)
-    })
-  }, [])
-
-  if (failed) {
-    return (
-      <div style={{ width: '100%', height: '100%', background: '#dbe4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-        지도를 불러오지 못했습니다.
-      </div>
-    )
-  }
-
-  return (
-    <div
-      id="daumRoughmapContainer1535262039184"
-      className="root_daum_roughmap root_daum_roughmap_landing"
-      style={{ width: '100%', height: '100%' }}
-    />
-  )
-}
 
 export default function Location() {
   const { address, phone } = useSettings()
@@ -62,7 +30,20 @@ export default function Location() {
 
   if (loading) return (
     <SubLayout section="교회 소개" menus={menus} title="오시는길">
-      <div style={{ padding: '80px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+      <div style={{ display: 'grid', gap: '20px' }}>
+        <SkeletonCard style={{ height: '440px', padding: '0' }}>
+          <SkeletonBlock width="100%" height="100%" radius="0" />
+        </SkeletonCard>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {Array.from({ length: 2 }, (_, i) => (
+            <SkeletonCard key={i} style={{ padding: '20px', display: 'grid', gap: '10px' }}>
+              <SkeletonBlock width="42px" height="42px" radius="10px" />
+              <SkeletonBlock width="80px" height="12px" />
+              <SkeletonBlock width="85%" height="16px" />
+            </SkeletonCard>
+          ))}
+        </div>
+      </div>
     </SubLayout>
   )
 
@@ -87,7 +68,7 @@ export default function Location() {
               title="교회 위치"
             />
           ) : (
-            <DaumMap />
+            <MapPlaceholderNotice />
           )}
         </div>
 

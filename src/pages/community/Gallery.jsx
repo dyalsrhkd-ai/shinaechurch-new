@@ -3,6 +3,8 @@ import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
 import { EVENT_DEPTS } from '../../data/media'
 import { useGalleryItems } from '../../hooks/useMediaItems'
+import ImageWithFallback from '../../components/ui/ImageWithFallback'
+import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
 const menus = [
   { label: '교회소식', path: '/community/news' },
@@ -75,7 +77,17 @@ export default function Gallery() {
       </div>
 
       {loading ? (
-        <div style={{ padding: '80px 0', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+        <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonCard key={i}>
+              <SkeletonBlock width="100%" height="220px" radius="0" />
+              <div style={{ padding: '10px 12px', display: 'grid', gap: '8px' }}>
+                <SkeletonBlock width="52px" height="20px" radius="999px" />
+                <SkeletonBlock width="88%" height="14px" />
+              </div>
+            </SkeletonCard>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <div style={{ padding: '80px 0', textAlign: 'center', color: '#9ca3af', border: '1px dashed #dbe3ef', borderRadius: '16px' }}>
           검색 결과가 없습니다.
@@ -88,9 +100,10 @@ export default function Gallery() {
               return (
                 <div key={item.id} onClick={() => setLightbox(globalIndex)} style={{ borderRadius: '12px', overflow: 'hidden', cursor: 'pointer', border: '1px solid #eaecf0' }}>
                   <div style={{ aspectRatio: '4/3', overflow: 'hidden', position: 'relative' }}>
-                    <img
+                    <ImageWithFallback
                       src={item.imgUrl}
                       alt={item.label}
+                      label={item.label}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }}
                       onMouseEnter={event => { event.target.style.transform = 'scale(1.05)' }}
                       onMouseLeave={event => { event.target.style.transform = 'scale(1)' }}
@@ -114,7 +127,7 @@ export default function Gallery() {
       {lightbox !== null && filtered[lightbox] && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
           <div onClick={event => event.stopPropagation()} style={{ position: 'relative', maxWidth: '900px', width: '100%' }}>
-            <img src={filtered[lightbox].imgUrl} alt={filtered[lightbox].label} style={{ width: '100%', borderRadius: '12px' }} />
+            <ImageWithFallback src={filtered[lightbox].imgUrl} alt={filtered[lightbox].label} label={filtered[lightbox].label} style={{ width: '100%', borderRadius: '12px' }} />
             <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: '12px' }}>{filtered[lightbox].label}</p>
             <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.45)', fontSize: '0.75rem', marginTop: '6px' }}>{filtered[lightbox].dept}</p>
             {lightbox > 0 && <button onClick={event => { event.stopPropagation(); setLightbox(lightbox - 1) }} style={{ position: 'absolute', left: '-48px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', color: '#fff', fontSize: '1.3rem', cursor: 'pointer' }}>‹</button>}

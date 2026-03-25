@@ -3,6 +3,8 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../../firebase'
 import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
+import ImageWithFallback from '../../components/ui/ImageWithFallback'
+import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
 const menus = [
   { label: '교회소식',   path: '/community/news' },
@@ -38,7 +40,20 @@ export default function News() {
   return (
     <SubLayout section="교제와 나눔" menus={menus} title="교회소식">
       {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+        <SkeletonCard>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', background: '#0f2040', padding: '12px 20px' }}>
+            {['번호', '제목', '등록일'].map(h => (
+              <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
+            ))}
+          </div>
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', padding: '14px 20px', borderBottom: i < 5 ? '1px solid #f0f2f5' : 'none', alignItems: 'center' }}>
+              <SkeletonBlock width="18px" height="14px" />
+              <SkeletonBlock width={`${78 - i * 4}%`} height="15px" />
+              <SkeletonBlock width="72px" height="14px" />
+            </div>
+          ))}
+        </SkeletonCard>
       ) : entries.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>등록된 교회소식이 없습니다.</div>
       ) : (
@@ -77,7 +92,7 @@ export default function News() {
                 {open === globalIdx(i) && (
                   <div style={{ padding: '20px', background: '#f8fafc', borderBottom: i < slice.length - 1 ? '1px solid #f0f2f5' : 'none', display: 'flex', justifyContent: 'center' }}>
                     {e.imgUrl
-                      ? <img src={e.imgUrl} alt={e.title} style={{ maxWidth: '400px', width: '100%', borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }} />
+                      ? <ImageWithFallback src={e.imgUrl} alt={e.title} label={e.title} style={{ maxWidth: '400px', width: '100%', borderRadius: '8px', boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }} />
                       : <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>이미지가 없습니다.</p>
                     }
                   </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../../firebase'
 import SubLayout from '../../components/SubLayout'
+import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
 const menus = [
   { label: '교회소식',   path: '/community/news' },
@@ -37,7 +38,20 @@ export default function Notice() {
   return (
     <SubLayout section="교제와 나눔" menus={menus} title="공지사항">
       {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+        <SkeletonCard>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', background: '#0f2040', padding: '12px 20px' }}>
+            {['번호', '제목', '등록일'].map(h => (
+              <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
+            ))}
+          </div>
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', padding: '14px 20px', borderBottom: i < 5 ? '1px solid #f0f2f5' : 'none', alignItems: 'center' }}>
+              <SkeletonBlock width="18px" height="14px" />
+              <SkeletonBlock width={`${80 - i * 5}%`} height="15px" />
+              <SkeletonBlock width="72px" height="14px" />
+            </div>
+          ))}
+        </SkeletonCard>
       ) : entries.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>등록된 공지사항이 없습니다.</div>
       ) : (

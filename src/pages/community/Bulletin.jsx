@@ -3,6 +3,7 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../../firebase'
 import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
+import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
 const menus = [
   { label: '교회소식',   path: '/community/news' },
@@ -41,7 +42,21 @@ export default function Bulletin() {
       </div>
 
       {loading ? (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+        <SkeletonCard>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px 110px', background: '#0f2040', padding: '12px 20px' }}>
+            {['번호', '제목', '파일', '등록일'].map(h => (
+              <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
+            ))}
+          </div>
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px 110px', padding: '14px 20px', borderBottom: i < 5 ? '1px solid #f0f2f5' : 'none', alignItems: 'center' }}>
+              <SkeletonBlock width="18px" height="14px" />
+              <SkeletonBlock width={`${76 - i * 4}%`} height="15px" />
+              <SkeletonBlock width="42px" height="22px" radius="999px" />
+              <SkeletonBlock width="72px" height="14px" />
+            </div>
+          ))}
+        </SkeletonCard>
       ) : entries.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>등록된 주보가 없습니다.</div>
       ) : (

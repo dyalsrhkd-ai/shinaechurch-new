@@ -47,6 +47,7 @@ export default function AdminLayout({ children }) {
   const uid = user?.uid || ''
   const [favs, setFavs] = useState(() => loadFavs(uid))
   const [hoveredPath, setHoveredPath] = useState(null)
+  const [menuKeyword, setMenuKeyword] = useState('')
   const [remainingMs, setRemainingMs] = useState(SESSION_TIMEOUT_MS)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [toasts, setToasts] = useState([])
@@ -66,6 +67,17 @@ export default function AdminLayout({ children }) {
   const routeLabel = MENU_GROUPS
     .flatMap(group => group.items)
     .find(item => item.path === location.pathname)?.label || '현재 페이지'
+  const normalizedMenuKeyword = menuKeyword.trim().toLowerCase()
+  const visibleGroups = MENU_GROUPS
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        if (!normalizedMenuKeyword) return true
+        const haystack = `${item.label} ${item.desc || ''} ${group.label}`.toLowerCase()
+        return haystack.includes(normalizedMenuKeyword)
+      }),
+    }))
+    .filter(group => group.items.length > 0)
 
   const toggleFav = (e, path) => {
     e.preventDefault()
@@ -306,6 +318,29 @@ export default function AdminLayout({ children }) {
 
         {/* 메뉴 */}
         <nav style={{ flex: 1, padding: '16px 12px' }}>
+          <div style={{ marginBottom: '18px', padding: '0 4px' }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                value={menuKeyword}
+                onChange={event => setMenuKeyword(event.target.value)}
+                placeholder="메뉴 검색"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px 10px 36px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#fff',
+                  fontSize: '0.8rem',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>
+                검색
+              </span>
+            </div>
+          </div>
+
           {/* 대시보드 */}
           <div style={{ marginBottom: '24px' }}>
             {(() => {
@@ -323,7 +358,7 @@ export default function AdminLayout({ children }) {
             })()}
           </div>
 
-          {MENU_GROUPS.map(group => (
+          {visibleGroups.map(group => (
             <div key={group.label} style={{ marginBottom: '24px' }}>
               <p style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.25)', padding: '0 8px', marginBottom: '6px' }}>
                 {group.label}
@@ -378,6 +413,12 @@ export default function AdminLayout({ children }) {
               })}
             </div>
           ))}
+
+          {visibleGroups.length === 0 ? (
+            <div style={{ marginTop: '20px', padding: '14px 12px', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)', fontSize: '0.78rem', lineHeight: 1.6 }}>
+              검색된 메뉴가 없습니다.
+            </div>
+          ) : null}
         </nav>
 
         {/* 하단 사용자 정보 */}

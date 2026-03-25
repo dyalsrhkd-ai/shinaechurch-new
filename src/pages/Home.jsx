@@ -1,47 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { collection, doc, getDoc, getDocs, orderBy, query, limit } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useSettings } from '../contexts/SettingsContext'
-import { renderDaumRoughmap } from '../utils/daumRoughmap'
-
-function HomeMap() {
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    renderDaumRoughmap({
-      containerId: 'daumRoughmapContainer1535262039184',
-      timestamp: '1535262039184',
-      key: 'pp3p',
-      mapWidth: '100%',
-      mapHeight: '100%',
-    }).catch(error => {
-      console.error(error)
-      setFailed(true)
-    })
-  }, [])
-
-  return (
-    <div style={{ borderRadius: '16px', overflow: 'hidden', aspectRatio: '4/3' }}>
-      {failed ? (
-        <div style={{ width: '100%', height: '100%', background: '#dbe4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>
-          지도를 불러오지 못했습니다.
-        </div>
-      ) : (
-        <div
-          id="daumRoughmapContainer1535262039184"
-          className="root_daum_roughmap root_daum_roughmap_landing"
-          style={{ width: '100%', height: '100%' }}
-        />
-      )}
-    </div>
-  )
-}
 import { Link } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Navigation, Pagination } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/navigation'
 import 'swiper/css/pagination'
+import ImageWithFallback from '../components/ui/ImageWithFallback'
+import MapPlaceholderNotice from '../components/ui/MapPlaceholderNotice'
+import { SkeletonBlock } from '../components/ui/Skeleton'
 
 /* ────────── 데이터 ────────── */
 
@@ -119,6 +88,8 @@ export default function Home() {
   const [openNotice, setOpenNotice] = useState(null)
   const [bulletins, setBulletins] = useState([])
   const [locationData, setLocationData] = useState(null)
+  const [noticesLoading, setNoticesLoading] = useState(true)
+  const [bulletinsLoading, setBulletinsLoading] = useState(true)
 
   useEffect(() => {
     const cached = sessionStorage.getItem('mainSlides')
@@ -150,7 +121,7 @@ export default function Home() {
       })
       sessionStorage.setItem('mainNotices', JSON.stringify(result))
       setNotices(result)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setNoticesLoading(false))
 
     // 주보 최신 5개
     const cachedBulletins = sessionStorage.getItem('mainBulletins')
@@ -164,7 +135,7 @@ export default function Home() {
       })
       sessionStorage.setItem('mainBulletins', JSON.stringify(result))
       setBulletins(result)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setBulletinsLoading(false))
 
     getDoc(doc(db, 'location', 'main'))
       .then(snap => {
@@ -183,7 +154,15 @@ export default function Home() {
 
         {/* 슬라이더 */}
         {!slides && (
-          <div style={{ height: 'clamp(520px, 65vw, 780px)', background: '#0a1628' }} />
+          <div style={{ height: 'clamp(520px, 65vw, 780px)', background: '#0a1628', padding: '0 clamp(2rem, 8vw, 8rem)', display: 'flex', alignItems: 'center' }}>
+            <div style={{ width: '100%', maxWidth: '560px', display: 'grid', gap: '16px' }}>
+              <SkeletonBlock width="180px" height="18px" radius="999px" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.24) 0%, rgba(255,255,255,0.22) 50%, rgba(148,163,184,0.24) 100%)' }} />
+              <SkeletonBlock width="100%" height="56px" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.28) 0%, rgba(255,255,255,0.24) 50%, rgba(148,163,184,0.28) 100%)' }} />
+              <SkeletonBlock width="82%" height="56px" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.28) 0%, rgba(255,255,255,0.24) 50%, rgba(148,163,184,0.28) 100%)' }} />
+              <SkeletonBlock width="55%" height="18px" style={{ background: 'linear-gradient(90deg, rgba(148,163,184,0.24) 0%, rgba(255,255,255,0.22) 50%, rgba(148,163,184,0.24) 100%)' }} />
+              <SkeletonBlock width="146px" height="44px" radius="999px" style={{ background: 'linear-gradient(90deg, rgba(59,130,246,0.4) 0%, rgba(96,165,250,0.65) 50%, rgba(59,130,246,0.4) 100%)' }} />
+            </div>
+          </div>
         )}
         {slides && <Swiper
           modules={[Autoplay, Navigation, Pagination]}
@@ -197,7 +176,7 @@ export default function Home() {
           {slides.map((s, i) => (
             <SwiperSlide key={i}>
               <div className="relative w-full h-full">
-                <img src={s.img} alt="" className="w-full h-full object-cover" />
+                <ImageWithFallback src={s.img} alt="" label="메인 이미지" className="w-full h-full object-cover" />
                 <div
                   className="absolute inset-0"
                   style={{ background: 'linear-gradient(to right, rgba(5,15,35,0.72) 0%, rgba(5,15,35,0.45) 60%, rgba(5,15,35,0.2) 100%)' }}
@@ -324,7 +303,7 @@ export default function Home() {
               >
                 {/* 썸네일 */}
                 <div style={{ position: 'relative', aspectRatio: '16/9', overflow: 'hidden' }}>
-                  <img src={s.thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }} />
+                  <ImageWithFallback src={s.thumb} alt="" label={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }} />
                   {/* hover overlay */}
                   <div
                     className="play-overlay"
@@ -372,7 +351,15 @@ export default function Home() {
               </Link>
             </div>
             <ul style={{ listStyle: 'none' }}>
-              {notices.map((n, i) => (
+              {noticesLoading ? Array.from({ length: 4 }, (_, i) => (
+                <li key={`notice-skeleton-${i}`} style={{ borderBottom: '1px solid #f0f2f5', padding: '16px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <SkeletonBlock width="52px" height="22px" radius="999px" />
+                    <SkeletonBlock width="100%" height="15px" />
+                    <SkeletonBlock width="48px" height="14px" />
+                  </div>
+                </li>
+              )) : notices.map((n, i) => (
                 <li key={n.id || i} style={{ borderBottom: '1px solid #f0f2f5' }}>
                   <div
                     onClick={() => setOpenNotice(openNotice === i ? null : i)}
@@ -424,7 +411,15 @@ export default function Home() {
               </Link>
             </div>
             <ul style={{ listStyle: 'none' }}>
-              {bulletins.map((b, i) => (
+              {bulletinsLoading ? Array.from({ length: 4 }, (_, i) => (
+                <li key={`bulletin-skeleton-${i}`} style={{ borderBottom: '1px solid #f0f2f5', padding: '16px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <SkeletonBlock width="36px" height="36px" radius="8px" />
+                    <SkeletonBlock width="100%" height="15px" />
+                    <SkeletonBlock width="32px" height="32px" radius="8px" />
+                  </div>
+                </li>
+              )) : bulletins.map((b, i) => (
                 <li key={b.id || i} style={{ borderBottom: '1px solid #f0f2f5' }}>
                   <a
                     href={b.fileUrl}
@@ -472,7 +467,7 @@ export default function Home() {
                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                <img src={d.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <ImageWithFallback src={d.img} alt="" label={d.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5,15,40,0.80) 0%, rgba(5,15,40,0.1) 60%)' }} />
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px' }}>
                   <p style={{ fontWeight: 800, fontSize: '1rem', color: '#fff', marginBottom: '4px' }}>{d.label}</p>
@@ -504,7 +499,7 @@ export default function Home() {
               />
             </div>
           ) : (
-            <HomeMap />
+            <MapPlaceholderNotice compact />
           )}
 
           {/* 정보 */}
