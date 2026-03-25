@@ -24,6 +24,17 @@ function formatRemainingTime(milliseconds) {
   return `${minutes}:${seconds}`
 }
 
+function createToast(message) {
+  const text = String(message || '').trim()
+  const lower = text.toLowerCase()
+  const type = lower.includes('오류') || lower.includes('실패') ? 'error' : 'success'
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    message: text,
+    type,
+  }
+}
+
 export default function AdminLayout({ children }) {
   const { user } = useAuth()
   const location = useLocation()
@@ -38,6 +49,7 @@ export default function AdminLayout({ children }) {
   const [hoveredPath, setHoveredPath] = useState(null)
   const [remainingMs, setRemainingMs] = useState(SESSION_TIMEOUT_MS)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [toasts, setToasts] = useState([])
   const [visitorStats, setVisitorStats] = useState({
     todayVisits: 0,
     weekVisits: 0,
@@ -65,6 +77,31 @@ export default function AdminLayout({ children }) {
     await signOut(auth)
     navigate('/admin/login')
   }
+
+  useEffect(() => {
+    const pushToast = (message) => {
+      const toast = createToast(message)
+      if (!toast.message) return
+
+      setToasts(current => [...current, toast])
+      window.setTimeout(() => {
+        setToasts(current => current.filter(item => item.id !== toast.id))
+      }, 3200)
+    }
+
+    const handleToastEvent = (event) => {
+      pushToast(event.detail?.message)
+    }
+
+    const originalAlert = window.alert
+    window.alert = (message) => pushToast(message)
+    window.addEventListener('admin:toast', handleToastEvent)
+
+    return () => {
+      window.alert = originalAlert
+      window.removeEventListener('admin:toast', handleToastEvent)
+    }
+  }, [])
 
   useEffect(() => {
     setHasUnsavedChanges(false)
@@ -397,6 +434,27 @@ export default function AdminLayout({ children }) {
         </div>
 
         <div ref={contentRef} style={{ padding: '32px', position: 'relative' }}>
+          {toasts.length > 0 ? (
+            <div style={{ position: 'fixed', top: '84px', right: '28px', zIndex: 1000, display: 'flex', flexDirection: 'column', gap: '10px', pointerEvents: 'none' }}>
+              {toasts.map(toast => (
+                <div key={toast.id} style={{
+                  minWidth: '260px',
+                  maxWidth: '360px',
+                  borderRadius: '14px',
+                  border: toast.type === 'error' ? '1px solid #fecaca' : '1px solid #bfdbfe',
+                  background: toast.type === 'error' ? '#fff1f2' : '#eff6ff',
+                  color: toast.type === 'error' ? '#b91c1c' : '#1d4ed8',
+                  padding: '12px 14px',
+                  boxShadow: '0 12px 28px rgba(15,23,42,0.12)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  lineHeight: 1.6,
+                }}>
+                  {toast.message}
+                </div>
+              ))}
+            </div>
+          ) : null}
           {routeLock.enabled ? (
             <div style={{
               marginBottom: '20px',
