@@ -41,6 +41,24 @@ const blockColors = {
   note: '#d97706',
 }
 
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
+
 function splitLines(text) {
   return (text || '')
     .split('\n')
@@ -285,6 +303,19 @@ export default function PageContentManager({ title, description, pages }) {
         <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '4px' }}>{description}</p>
       </div>
 
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '4px' }}>상단 저장</p>
+          <p style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f2040' }}>{selectedPage?.label || '페이지 선택'}</p>
+          <p style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '2px' }}>
+            {loading ? '페이지를 불러오는 중입니다.' : '수정한 내용을 바로 저장할 수 있습니다.'}
+          </p>
+        </div>
+        <button onClick={handleSave} disabled={loading || saving} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#1d4ed8', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
+          {saving ? '저장 중...' : '페이지 저장'}
+        </button>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: '20px', alignItems: 'start' }}>
         <aside style={{ background: '#fff', border: '1px solid #eaecf0', borderRadius: '16px', padding: '16px' }}>
           <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '12px' }}>편집 페이지</p>
@@ -319,9 +350,7 @@ export default function PageContentManager({ title, description, pages }) {
                 <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px' }}>현재 편집 중</p>
                 <p style={{ fontSize: '1rem', fontWeight: 800, color: '#0f2040' }}>{selectedPage?.label}</p>
               </div>
-              <button onClick={handleSave} disabled={loading || saving} style={{ padding: '11px 18px', borderRadius: '10px', border: 'none', background: '#1d4ed8', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
-                {saving ? '저장 중...' : '페이지 저장'}
-              </button>
+              <span style={{ fontSize: '0.76rem', color: '#6b7280' }}>저장 버튼은 화면 상단에 고정되어 있습니다.</span>
             </div>
 
             {loading ? (

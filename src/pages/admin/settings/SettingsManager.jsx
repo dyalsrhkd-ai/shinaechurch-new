@@ -2,6 +2,24 @@ import { useEffect, useState } from 'react'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../../firebase'
 
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
+
 function Field({ label, hint, children }) {
   return (
     <div>
@@ -85,6 +103,18 @@ export default function SettingsManager() {
         </p>
       </div>
 
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '4px' }}>상단 저장</p>
+          <p style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f2040' }}>기본 정보 반영</p>
+          <p style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '2px' }}>헤더, 푸터, 메인 정보 수정 후 바로 저장할 수 있습니다.</p>
+        </div>
+        <button onClick={handleSave} disabled={saving}
+          style={{ padding: '11px 18px', background: '#0f2040', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', fontSize: '0.9rem' }}>
+          {saving ? '저장 중...' : '전체 저장'}
+        </button>
+      </div>
+
       {/* 교회 기본 정보 */}
       <div style={{ background: '#f8fafc', border: '1px solid #eaecf0', borderRadius: '14px', padding: '20px', marginBottom: '24px' }}>
         <p style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040', marginBottom: '16px' }}>교회 정보</p>
@@ -139,10 +169,6 @@ export default function SettingsManager() {
         </div>
       </div>
 
-      <button onClick={handleSave} disabled={saving}
-        style={{ width: '100%', padding: '13px', background: '#0f2040', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', fontSize: '0.95rem' }}>
-        {saving ? '저장 중...' : '전체 저장'}
-      </button>
     </div>
   )
 }

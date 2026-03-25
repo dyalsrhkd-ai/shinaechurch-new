@@ -7,6 +7,24 @@ import { validateImageFile } from '../../../utils/fileValidation'
 // ── 색상 프리셋 ─────────────────────────────────
 const COLORS = ['#1d4ed8', '#0369a1', '#7c3aed', '#059669', '#dc2626', '#d97706']
 
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
+
 // ── 건물 섹션 편집 컴포넌트 ──────────────────────
 function BuildingEditor({ building, onChange, onDelete }) {
   const [editFloorIdx, setEditFloorIdx] = useState(null)
@@ -259,6 +277,18 @@ export default function FacilityManager() {
         </p>
       </div>
 
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '4px' }}>상단 저장</p>
+          <p style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f2040' }}>건물 및 시설 구성</p>
+          <p style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '2px' }}>건물 구조 수정 내용은 이 버튼으로 저장합니다. 사진 업로드는 바로 반영됩니다.</p>
+        </div>
+        <button onClick={handleSaveBuildings} disabled={savingBuildings}
+          style={{ padding: '11px 18px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
+          {savingBuildings ? '저장 중...' : '건물 구성 저장'}
+        </button>
+      </div>
+
       {/* ── 대표 사진 ─────────────────────────── */}
       <div style={{ background: '#f8fafc', border: '1px solid #eaecf0', borderRadius: '14px', padding: '20px', marginBottom: '32px' }}>
         <p style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040', marginBottom: '14px' }}>대표 사진 (히어로)</p>
@@ -299,10 +329,6 @@ export default function FacilityManager() {
           />
         ))}
 
-        <button onClick={handleSaveBuildings} disabled={savingBuildings}
-          style={{ width: '100%', padding: '11px', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '9px', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
-          {savingBuildings ? '저장 중...' : '건물 구성 저장'}
-        </button>
       </div>
 
       {/* ── 시설 사진 관리 ──────────────────────── */}

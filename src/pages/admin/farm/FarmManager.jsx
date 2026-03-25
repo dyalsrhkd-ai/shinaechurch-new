@@ -17,6 +17,24 @@ const DEFAULTS = {
 
 const PER_PAGE = 12
 
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
+
 // contentEditable 인라인 편집 컴포넌트
 function Editable({ value, onChange, placeholder, style, as: Tag = 'p' }) {
   const ref = useRef(null)
@@ -146,8 +164,16 @@ export default function FarmManager() {
           <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f2040' }}>영선관리</h1>
           <p style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '3px' }}>밑줄 있는 텍스트를 클릭해서 바로 수정하고 저장하세요.</p>
         </div>
+      </div>
+
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '4px' }}>상단 저장</p>
+          <p style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f2040' }}>영선관리 소개 반영</p>
+          <p style={{ fontSize: '0.76rem', color: '#6b7280', marginTop: '2px' }}>본문과 담당자 수정 후 저장하고, 활동 사진은 별도로 바로 추가할 수 있습니다.</p>
+        </div>
         <button onClick={handleSave} disabled={saving}
-          style={{ padding: '9px 22px', background: '#0f2040', color: '#fff', border: 'none', borderRadius: '9px', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>
+          style={{ padding: '11px 18px', background: '#0f2040', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
           {saving ? '저장 중...' : '저장'}
         </button>
       </div>
