@@ -63,6 +63,9 @@ export default function AdminLayout({ children }) {
     location.pathname !== '/admin/login' &&
     location.pathname !== '/admin/dashboard'
   )
+  const routeLabel = MENU_GROUPS
+    .flatMap(group => group.items)
+    .find(item => item.path === location.pathname)?.label || '현재 페이지'
 
   const toggleFav = (e, path) => {
     e.preventDefault()
@@ -395,6 +398,29 @@ export default function AdminLayout({ children }) {
       <main style={{ flex: 1, marginLeft: '240px', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ background: '#fff', borderBottom: '1px solid #eaecf0', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            {routeLock.enabled ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '7px 12px',
+                borderRadius: '999px',
+                background: routeLock.isLockedByOther ? '#fef2f2' : routeLock.isChecking ? '#f8fafc' : '#ecfdf5',
+                border: routeLock.isLockedByOther ? '1px solid #fecaca' : routeLock.isChecking ? '1px solid #e5e7eb' : '1px solid #bbf7d0',
+                color: routeLock.isLockedByOther ? '#b91c1c' : routeLock.isChecking ? '#475569' : '#047857',
+                fontSize: '0.8rem',
+                fontWeight: 800,
+              }}>
+                <span style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: routeLock.isLockedByOther ? '#dc2626' : routeLock.isChecking ? '#94a3b8' : '#10b981',
+                  boxShadow: routeLock.isLockedByOther ? '0 0 0 4px rgba(220,38,38,0.14)' : 'none',
+                }} />
+                {routeLock.isLockedByOther ? `${routeLabel} 읽기 전용` : routeLock.isChecking ? '잠금 확인 중' : `${routeLabel} 수정 중`}
+              </div>
+            ) : null}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>
               <span style={{ color: '#9ca3af' }}>세션 남은 시간</span>
               <span style={{ padding: '6px 10px', borderRadius: '999px', background: remainingMs <= 60 * 1000 ? '#fef2f2' : '#eff6ff', color: remainingMs <= 60 * 1000 ? '#dc2626' : '#1d4ed8', fontFamily: 'monospace', fontWeight: 800 }}>
@@ -458,39 +484,45 @@ export default function AdminLayout({ children }) {
           {routeLock.enabled ? (
             <div style={{
               marginBottom: '20px',
-              borderRadius: '14px',
+              borderRadius: '16px',
               border: routeLock.isLockedByOther ? '1px solid #fecaca' : routeLock.hasError ? '1px solid #fde68a' : '1px solid #bfdbfe',
               background: routeLock.isLockedByOther ? '#fef2f2' : routeLock.hasError ? '#fffbeb' : '#eff6ff',
-              padding: '14px 16px',
+              padding: '16px 18px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: '12px',
               flexWrap: 'wrap',
+              boxShadow: routeLock.isLockedByOther ? '0 10px 24px rgba(185,28,28,0.08)' : 'none',
             }}>
               <div>
-                <p style={{ fontSize: '0.84rem', fontWeight: 800, color: routeLock.isLockedByOther ? '#b91c1c' : routeLock.hasError ? '#92400e' : '#1d4ed8' }}>
+                <p style={{ fontSize: '0.9rem', fontWeight: 900, color: routeLock.isLockedByOther ? '#b91c1c' : routeLock.hasError ? '#92400e' : '#1d4ed8' }}>
                   {routeLock.isChecking
                     ? '편집 잠금을 확인하는 중입니다.'
                     : routeLock.isLockedByOther
-                      ? '다른 관리자가 이 페이지를 편집 중입니다.'
+                      ? `${routeLabel} 페이지는 현재 읽기 전용입니다.`
                       : routeLock.hasError
                         ? '편집 잠금 상태를 확인하지 못했습니다.'
-                        : '현재 이 페이지 편집 잠금을 보유 중입니다.'}
+                        : `${routeLabel} 페이지를 현재 수정 중입니다.`}
                 </p>
                 {routeLock.isLockedByOther && routeLock.lockOwner?.email ? (
-                  <p style={{ fontSize: '0.76rem', color: '#7f1d1d', marginTop: '4px' }}>
+                  <p style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '6px', fontWeight: 700 }}>
                     편집 중 관리자: {routeLock.lockOwner.email}
                   </p>
                 ) : null}
                 {routeLock.isLockedByMe ? (
-                  <p style={{ fontSize: '0.76rem', color: '#1e40af', marginTop: '4px' }}>
-                    이 페이지는 현재 본인만 수정할 수 있습니다.
+                  <p style={{ fontSize: '0.8rem', color: '#1e40af', marginTop: '6px', fontWeight: 700 }}>
+                    현재 이 메뉴는 본인만 수정할 수 있습니다.
+                  </p>
+                ) : null}
+                {routeLock.isLockedByOther ? (
+                  <p style={{ fontSize: '0.78rem', color: '#991b1b', marginTop: '6px' }}>
+                    다른 메뉴는 이동 가능하지만 이 페이지에서는 입력과 저장이 차단됩니다.
                   </p>
                 ) : null}
               </div>
               {routeLock.isLockedByOther && routeLock.lockOwner?.expiresAt ? (
-                <span style={{ fontSize: '0.74rem', color: '#991b1b', fontWeight: 700 }}>
+                <span style={{ fontSize: '0.76rem', color: '#991b1b', fontWeight: 800, padding: '8px 10px', borderRadius: '999px', background: 'rgba(255,255,255,0.72)' }}>
                   잠금 만료 예정: {new Date(routeLock.lockOwner.expiresAt).toLocaleTimeString()}
                 </span>
               ) : null}
@@ -515,6 +547,32 @@ export default function AdminLayout({ children }) {
             opacity: routeLock.isLockedByOther || routeLock.isChecking ? 0.55 : 1,
             pointerEvents: routeLock.isLockedByOther || routeLock.isChecking ? 'none' : 'auto',
           }}>
+            {routeLock.isLockedByOther ? (
+              <div style={{
+                position: 'sticky',
+                top: '88px',
+                zIndex: 9,
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: '20px',
+              }}>
+                <div style={{
+                  maxWidth: '520px',
+                  width: '100%',
+                  borderRadius: '18px',
+                  border: '1px solid #fecaca',
+                  background: 'rgba(255,255,255,0.96)',
+                  boxShadow: '0 18px 42px rgba(185, 28, 28, 0.16)',
+                  padding: '18px 20px',
+                  textAlign: 'center',
+                }}>
+                  <p style={{ fontSize: '0.95rem', fontWeight: 900, color: '#b91c1c' }}>읽기 전용 상태</p>
+                  <p style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '6px', lineHeight: 1.6 }}>
+                    다른 관리자가 현재 <strong>{routeLabel}</strong> 페이지를 수정 중이라 입력과 저장이 잠겨 있습니다.
+                  </p>
+                </div>
+              </div>
+            ) : null}
             {children}
           </div>
         </div>
