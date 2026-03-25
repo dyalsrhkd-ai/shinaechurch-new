@@ -1,29 +1,38 @@
 import { useState, useEffect, useRef } from 'react'
+import { collection, doc, getDoc, getDocs, orderBy, query, limit } from 'firebase/firestore'
+import { db } from '../firebase'
+import { useSettings } from '../contexts/SettingsContext'
+import { renderDaumRoughmap } from '../utils/daumRoughmap'
 
 function HomeMap() {
+  const [failed, setFailed] = useState(false)
+
   useEffect(() => {
-    const tryRender = () => {
-      if (window.daum && window.daum.roughmap && window.daum.roughmap.Lander) {
-        new window.daum.roughmap.Lander({
-          timestamp: '1535262039184',
-          key: 'pp3p',
-          mapWidth: '100%',
-          mapHeight: '100%',
-        }).render()
-      } else {
-        setTimeout(tryRender, 100)
-      }
-    }
-    tryRender()
+    renderDaumRoughmap({
+      containerId: 'daumRoughmapContainer1535262039184',
+      timestamp: '1535262039184',
+      key: 'pp3p',
+      mapWidth: '100%',
+      mapHeight: '100%',
+    }).catch(error => {
+      console.error(error)
+      setFailed(true)
+    })
   }, [])
 
   return (
     <div style={{ borderRadius: '16px', overflow: 'hidden', aspectRatio: '4/3' }}>
-      <div
-        id="daumRoughmapContainer1535262039184"
-        className="root_daum_roughmap root_daum_roughmap_landing"
-        style={{ width: '100%', height: '100%' }}
-      />
+      {failed ? (
+        <div style={{ width: '100%', height: '100%', background: '#dbe4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>
+          지도를 불러오지 못했습니다.
+        </div>
+      ) : (
+        <div
+          id="daumRoughmapContainer1535262039184"
+          className="root_daum_roughmap root_daum_roughmap_landing"
+          style={{ width: '100%', height: '100%' }}
+        />
+      )}
     </div>
   )
 }
@@ -36,7 +45,7 @@ import 'swiper/css/pagination'
 
 /* ────────── 데이터 ────────── */
 
-const slides = [
+const defaultSlides = [
   { img: '/images/main1.jpg', title: '하나님의 은혜 안에서\n함께 자라는 교회', sub: '신애교회가 당신을 환영합니다' },
   { img: '/images/main2.jpg', title: '말씀 위에\n세워진 공동체',               sub: '매주일 은혜로운 예배로 초대합니다' },
   { img: '/images/main3.jpg', title: '사랑으로\n섬기는 신애교회',              sub: '함께 성장하고 나누는 공동체' },
@@ -52,48 +61,47 @@ const quickCards = [
   { ko: '오시는길',    en: 'Location',        to: '/intro/location' },
 ]
 
-const sermons = [
+const wordPraiseItems = [
   {
     vid: 'aRKmAyzEVHY',
     thumb: 'https://img.youtube.com/vi/aRKmAyzEVHY/hqdefault.jpg',
     category: '주일예배',
-    title: '벽을 깨는 치유 (눅 17:11-19)',
-    date: '2025',
+    title: '벽을 깨는 치유',
+    meta: '눅 17:11-19',
+    to: '/media/sunday',
   },
   {
-    vid: '3mtD_gTYiK0',
-    thumb: 'https://img.youtube.com/vi/3mtD_gTYiK0/hqdefault.jpg',
-    category: '주일예배',
-    title: '제자의 자격 (눅 14:25-33)',
-    date: '2025',
+    vid: 'EYIet64lGy0',
+    thumb: 'https://img.youtube.com/vi/EYIet64lGy0/hqdefault.jpg',
+    category: '특별설교',
+    title: '특별설교',
+    meta: '창 3:1-10',
+    to: '/media/special',
   },
   {
-    vid: 'F1cLLwzOSEA',
-    thumb: 'https://img.youtube.com/vi/F1cLLwzOSEA/hqdefault.jpg',
-    category: '주일예배',
-    title: '그리스도 안에서 (골 2:6-15)',
-    date: '2025',
+    vid: 'X4nCDhXGJ3o',
+    thumb: 'https://img.youtube.com/vi/X4nCDhXGJ3o/hqdefault.jpg',
+    category: '성가대',
+    title: '봉헌송',
+    meta: '변지은',
+    to: '/media/choir',
   },
 ]
 
-const notices = [
-  { date: '03.22', title: '2026년 부활절 연합예배 안내',           badge: '공지' },
-  { date: '03.15', title: '3월 정기 제직회 공지사항',              badge: '공지' },
-  { date: '03.10', title: '교회 봉사자 모집 — 음향·영상팀',        badge: '모집' },
-  { date: '03.05', title: '새가족 환영 예배 일정 공지',            badge: '공지' },
-  { date: '02.28', title: '성경대학 2026학년도 수강생 모집',        badge: '모집' },
-  { date: '02.20', title: '교회 창립 43주년 기념예배 안내',         badge: '공지' },
-]
+const wordPraiseBadgeStyles = {
+  주일예배: { background: '#dc2626', color: '#fff' },
+  특별설교: { background: '#7c3aed', color: '#fff' },
+  성가대: { background: '#16a34a', color: '#fff' },
+}
 
-const FILE_BASE = 'http://www.shinaechurch.co.kr/wi_files/pds_files/'
+function formatNoticeDate(ts) {
+  if (!ts) return ''
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${m}.${day}`
+}
 
-const bulletins = [
-  { label: '2026년 3월 22일', file: '1008.hwp' },
-  { label: '2026년 3월 15일', file: '1001.hwp' },
-  { label: '2026년 3월  8일', file: '997.hwp' },
-  { label: '2026년 3월  1일', file: '996.hwp' },
-  { label: '2026년 2월 22일', file: '991.hwp' },
-]
 
 const depts = [
   { label: '아동부',    sub: '어린이를 위한 신앙교육',   img: '/images/main1.jpg',           to: '/school/children' },
@@ -105,6 +113,66 @@ const depts = [
 /* ────────── 메인 ────────── */
 
 export default function Home() {
+  const { address, phone, email } = useSettings()
+  const [slides, setSlides] = useState(null)
+  const [notices, setNotices] = useState([])
+  const [openNotice, setOpenNotice] = useState(null)
+  const [bulletins, setBulletins] = useState([])
+  const [locationData, setLocationData] = useState(null)
+
+  useEffect(() => {
+    const cached = sessionStorage.getItem('mainSlides')
+    if (cached) {
+      try { setSlides(JSON.parse(cached)) } catch {}
+    }
+    const q = query(collection(db, 'slides'), orderBy('order'))
+    getDocs(q).then(snap => {
+      const active = snap.docs.map(d => d.data()).filter(d => d.active !== false)
+      const result = active.length > 0
+        ? active.map(d => ({ img: d.imgUrl, title: d.title, sub: d.sub }))
+        : defaultSlides
+      sessionStorage.setItem('mainSlides', JSON.stringify(result))
+      setSlides(result)
+    }).catch(() => {
+      if (!sessionStorage.getItem('mainSlides')) setSlides(defaultSlides)
+    })
+
+    // 공지사항 최신 6개
+    const cachedNotices = sessionStorage.getItem('mainNotices')
+    if (cachedNotices) {
+      try { setNotices(JSON.parse(cachedNotices)) } catch {}
+    }
+    const nq = query(collection(db, 'notices'), orderBy('date', 'desc'), limit(6))
+    getDocs(nq).then(snap => {
+      const result = snap.docs.map(d => {
+        const data = d.data()
+        return { id: d.id, title: data.title, badge: data.badge, date: formatNoticeDate(data.date), content: data.content || '', fileUrl: data.fileUrl || null, fileName: data.fileName || null }
+      })
+      sessionStorage.setItem('mainNotices', JSON.stringify(result))
+      setNotices(result)
+    }).catch(() => {})
+
+    // 주보 최신 5개
+    const cachedBulletins = sessionStorage.getItem('mainBulletins')
+    if (cachedBulletins) {
+      try { setBulletins(JSON.parse(cachedBulletins)) } catch {}
+    }
+    getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(5))).then(snap => {
+      const result = snap.docs.map(d => {
+        const data = d.data()
+        return { id: d.id, title: data.title, fileUrl: data.fileUrl, fileType: data.fileType || 'hwp' }
+      })
+      sessionStorage.setItem('mainBulletins', JSON.stringify(result))
+      setBulletins(result)
+    }).catch(() => {})
+
+    getDoc(doc(db, 'location', 'main'))
+      .then(snap => {
+        if (snap.exists()) setLocationData(snap.data())
+      })
+      .catch(console.error)
+  }, [])
+
   return (
     <div>
 
@@ -114,7 +182,10 @@ export default function Home() {
       <section className="relative" style={{ background: '#0a1628' }}>
 
         {/* 슬라이더 */}
-        <Swiper
+        {!slides && (
+          <div style={{ height: 'clamp(520px, 65vw, 780px)', background: '#0a1628' }} />
+        )}
+        {slides && <Swiper
           modules={[Autoplay, Navigation, Pagination]}
           autoplay={{ delay: 5000, disableOnInteraction: false }}
           navigation
@@ -169,7 +240,7 @@ export default function Home() {
               </div>
             </SwiperSlide>
           ))}
-        </Swiper>
+        </Swiper>}
 
         {/* ── 레이어 카드 (히어로 하단 절반 걸치기) ── */}
         <div
@@ -226,13 +297,13 @@ export default function Home() {
       <div style={{ height: 'clamp(60px, 7vw, 90px)', background: '#f6f8fb' }} />
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          § 2  설교
+          § 2  말씀 · 찬양
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <section style={{ background: '#f6f8fb', padding: '20px 0 80px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
             <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0f2040', letterSpacing: '-0.025em' }}>
-              설교
+              말씀 · 찬양
             </h2>
             <Link to="/media/sunday" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1d4ed8', display: 'flex', alignItems: 'center', gap: '4px' }}>
               전체보기
@@ -241,7 +312,7 @@ export default function Home() {
           </div>
 
           <div className="sermon-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-            {sermons.map((s, i) => (
+            {wordPraiseItems.map((s, i) => (
               <a
                 key={i}
                 href={`https://www.youtube.com/watch?v=${s.vid}`}
@@ -263,16 +334,21 @@ export default function Home() {
                       <svg width="22" height="22" fill="#0f2040" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                     </div>
                   </div>
-                  <span style={{ position: 'absolute', top: '12px', left: '12px', background: '#1d4ed8', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '9999px' }}>
+                  <span style={{ position: 'absolute', top: '12px', left: '12px', fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '9999px', ...(wordPraiseBadgeStyles[s.category] || wordPraiseBadgeStyles['주일예배']) }}>
                     {s.category}
                   </span>
                 </div>
                 {/* 텍스트 */}
                 <div style={{ padding: '18px 20px 20px' }}>
                   <p style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0f2040', lineHeight: 1.55, marginBottom: '8px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.title}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff0000"><path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.52 3.55 12 3.55 12 3.55s-7.52 0-9.38.5A3.02 3.02 0 00.5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 002.12 2.14C4.48 20.45 12 20.45 12 20.45s7.52 0 9.38-.5a3.02 3.02 0 002.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>
-                    <p style={{ fontSize: '0.78rem', color: '#9ca3af' }}>YouTube</p>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff0000"><path d="M23.5 6.19a3.02 3.02 0 00-2.12-2.14C19.52 3.55 12 3.55 12 3.55s-7.52 0-9.38.5A3.02 3.02 0 00.5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3.02 3.02 0 002.12 2.14C4.48 20.45 12 20.45 12 20.45s7.52 0 9.38-.5a3.02 3.02 0 002.12-2.14C24 15.93 24 12 24 12s0-3.93-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>
+                      <p style={{ fontSize: '0.78rem', color: '#9ca3af' }}>{s.meta}</p>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1d4ed8', margin: 0 }}>
+                      최신 {s.category}
+                    </p>
                   </div>
                 </div>
               </a>
@@ -297,21 +373,15 @@ export default function Home() {
             </div>
             <ul style={{ listStyle: 'none' }}>
               {notices.map((n, i) => (
-                <li key={i} style={{ borderBottom: '1px solid #f0f2f5' }}>
-                  <Link
-                    to="/community/notice"
-                    style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', textDecoration: 'none', transition: 'opacity 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                <li key={n.id || i} style={{ borderBottom: '1px solid #f0f2f5' }}>
+                  <div
+                    onClick={() => setOpenNotice(openNotice === i ? null : i)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', cursor: 'pointer' }}
                   >
                     <span style={{
-                      flexShrink: 0,
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      padding: '3px 10px',
-                      borderRadius: '9999px',
-                      background: n.badge === '모집' ? '#fff7ed' : '#eff6ff',
-                      color: n.badge === '모집' ? '#c2610c' : '#1d4ed8',
+                      flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, padding: '3px 10px', borderRadius: '9999px',
+                      background: n.badge === '모집' ? '#fff7ed' : n.badge === '안내' ? '#f0fdf4' : '#eff6ff',
+                      color: n.badge === '모집' ? '#c2610c' : n.badge === '안내' ? '#15803d' : '#1d4ed8',
                     }}>
                       {n.badge}
                     </span>
@@ -319,7 +389,27 @@ export default function Home() {
                       {n.title}
                     </span>
                     <span style={{ flexShrink: 0, fontSize: '0.75rem', color: '#9ca3af', fontFamily: 'monospace' }}>{n.date}</span>
-                  </Link>
+                    <span style={{ flexShrink: 0, fontSize: '0.7rem', color: '#9ca3af' }}>{openNotice === i ? '▲' : '▼'}</span>
+                  </div>
+                  {openNotice === i && (
+                    <div style={{ padding: '12px 0 20px', borderTop: '1px solid #f0f2f5' }}>
+                      {n.content
+                        ? <pre style={{ fontSize: '0.85rem', color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{n.content}</pre>
+                        : <p style={{ fontSize: '0.85rem', color: '#9ca3af', margin: 0 }}>내용이 없습니다.</p>
+                      }
+                      {n.fileUrl && (
+                        <a
+                          href={n.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', padding: '7px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          <svg width="13" height="13" fill="none" stroke="#1d4ed8" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          {n.fileName || '첨부파일 다운로드'}
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -335,19 +425,19 @@ export default function Home() {
             </div>
             <ul style={{ listStyle: 'none' }}>
               {bulletins.map((b, i) => (
-                <li key={i} style={{ borderBottom: '1px solid #f0f2f5' }}>
+                <li key={b.id || i} style={{ borderBottom: '1px solid #f0f2f5' }}>
                   <a
-                    href={FILE_BASE + b.file}
+                    href={b.fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', textDecoration: 'none', transition: 'opacity 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
                     onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                   >
-                    <div style={{ flexShrink: 0, width: '36px', height: '36px', borderRadius: '8px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="16" height="16" fill="#dc2626" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
+                    <div style={{ flexShrink: 0, width: '36px', height: '36px', borderRadius: '8px', background: b.fileType === 'pdf' ? '#fee2e2' : '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="16" height="16" fill={b.fileType === 'pdf' ? '#dc2626' : '#0284c7'} viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
                     </div>
-                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: '#1e3a5f' }}>{b.label} 주보</span>
+                    <span style={{ flex: 1, fontSize: '0.875rem', fontWeight: 500, color: '#1e3a5f' }}>{b.title}</span>
                     <div style={{ flexShrink: 0, width: '32px', height: '32px', borderRadius: '8px', background: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="14" height="14" fill="none" stroke="#fff" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
@@ -401,7 +491,21 @@ export default function Home() {
         <div className="location-grid" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'center' }}>
 
           {/* 지도 */}
-          <HomeMap />
+          {locationData?.mapEmbedUrl ? (
+            <div style={{ borderRadius: '16px', overflow: 'hidden', aspectRatio: '4/3' }}>
+              <iframe
+                src={locationData.mapEmbedUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 'none', display: 'block' }}
+                allowFullScreen
+                loading="lazy"
+                title="신애교회 위치"
+              />
+            </div>
+          ) : (
+            <HomeMap />
+          )}
 
           {/* 정보 */}
           <div>
@@ -409,9 +513,9 @@ export default function Home() {
             <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#fff', letterSpacing: '-0.025em', marginBottom: '32px' }}>오시는길</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '36px' }}>
               {[
-                { label: '주소',    value: '경기도 의왕시 왕곡로 187번지 (왕곡동)' },
-                { label: '전화',    value: '031-429-4557' },
-                { label: '이메일',  value: 'shinaechurch@naver.com' },
+                { label: '주소',    value: address },
+                { label: '전화',    value: phone },
+                { label: '이메일',  value: email },
               ].map(row => (
                 <div key={row.label} style={{ display: 'flex', gap: '20px' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.35)', width: '48px', flexShrink: 0, paddingTop: '2px' }}>{row.label}</span>

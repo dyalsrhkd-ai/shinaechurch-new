@@ -1,5 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import SubLayout from '../../components/SubLayout'
+import { useSettings } from '../../contexts/SettingsContext'
+import { renderDaumRoughmap } from '../../utils/daumRoughmap'
 
 const menus = [
   { label: '인사말',         path: '/intro/greeting' },
@@ -11,41 +15,79 @@ const menus = [
   { label: '교회시설물 안내', path: '/intro/facility' },
 ]
 
-export default function Location() {
+function DaumMap() {
+  const [failed, setFailed] = useState(false)
+
   useEffect(() => {
-    const tryRender = () => {
-      if (window.daum && window.daum.roughmap && window.daum.roughmap.Lander) {
-        new window.daum.roughmap.Lander({
-          timestamp: '1535262039184',
-          key: 'pp3p',
-          mapWidth: '100%',
-          mapHeight: '440',
-        }).render()
-      } else {
-        setTimeout(tryRender, 100)
-      }
-    }
-    tryRender()
+    renderDaumRoughmap({
+      containerId: 'daumRoughmapContainer1535262039184',
+      timestamp: '1535262039184',
+      key: 'pp3p',
+      mapWidth: '100%',
+      mapHeight: '440',
+    }).catch(error => {
+      console.error(error)
+      setFailed(true)
+    })
   }, [])
+
+  if (failed) {
+    return (
+      <div style={{ width: '100%', height: '100%', background: '#dbe4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '0.9rem' }}>
+        지도를 불러오지 못했습니다.
+      </div>
+    )
+  }
+
+  return (
+    <div
+      id="daumRoughmapContainer1535262039184"
+      className="root_daum_roughmap root_daum_roughmap_landing"
+      style={{ width: '100%', height: '100%' }}
+    />
+  )
+}
+
+export default function Location() {
+  const { address, phone } = useSettings()
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getDoc(doc(db, 'location', 'main'))
+      .then(snap => { if (snap.exists()) setData(snap.data()) })
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return (
+    <SubLayout section="교회 소개" menus={menus} title="오시는길">
+      <div style={{ padding: '80px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+    </SubLayout>
+  )
+
+  const kakaoMapUrl = data?.kakaoMapUrl || 'https://map.kakao.com/link/search/경기도 의왕시 왕곡로 187번지'
+  const mapEmbedUrl = data?.mapEmbedUrl || ''
+  const transportSections = data?.transportSections || []
 
   return (
     <SubLayout section="교회 소개" menus={menus} title="오시는길">
       <div>
         {/* 지도 */}
-        <div
-          style={{
-            borderRadius: '16px',
-            overflow: 'hidden',
-            marginBottom: '32px',
-            border: '1px solid #eaecf0',
-            height: '440px',
-          }}
-        >
-          <div
-            id="daumRoughmapContainer1535262039184"
-            className="root_daum_roughmap root_daum_roughmap_landing"
-            style={{ width: '100%', height: '100%' }}
-          />
+        <div style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '32px', border: '1px solid #eaecf0', height: '440px' }}>
+          {mapEmbedUrl ? (
+            <iframe
+              src={mapEmbedUrl}
+              width="100%"
+              height="440"
+              style={{ border: 'none', display: 'block' }}
+              allowFullScreen
+              loading="lazy"
+              title="교회 위치"
+            />
+          ) : (
+            <DaumMap />
+          )}
         </div>
 
         {/* 주소 정보 */}
@@ -58,7 +100,7 @@ export default function Location() {
                 </svg>
               ),
               label: '도로명 주소',
-              value: '경기도 의왕시 왕곡로 187번지 (왕곡동)',
+              value: address,
             },
             {
               icon: (
@@ -67,30 +109,11 @@ export default function Location() {
                 </svg>
               ),
               label: '전화',
-              value: '031-429-4557',
+              value: phone,
             },
           ].map((item, i) => (
-            <div
-              key={i}
-              style={{
-                background: '#f6f8fb',
-                borderRadius: '12px',
-                padding: '20px',
-                display: 'flex',
-                gap: '14px',
-                alignItems: 'flex-start',
-                border: '1px solid #eaecf0',
-              }}
-            >
-              <div
-                style={{
-                  width: '40px', height: '40px',
-                  borderRadius: '10px',
-                  background: '#eff6ff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
+            <div key={i} style={{ background: '#f6f8fb', borderRadius: '12px', padding: '20px', display: 'flex', gap: '14px', alignItems: 'flex-start', border: '1px solid #eaecf0' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {item.icon}
               </div>
               <div>
@@ -102,97 +125,41 @@ export default function Location() {
         </div>
 
         {/* 교통 안내 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f2040', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '4px', height: '20px', background: '#1d4ed8', borderRadius: '4px' }} />
-            교통 안내
-          </h3>
+        {transportSections.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f2040', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '4px', height: '20px', background: '#1d4ed8', borderRadius: '4px' }} />
+              교통 안내
+            </h3>
 
-          {/* 지하철 */}
-          <div style={{ background: '#f6f8fb', borderRadius: '12px', padding: '20px', border: '1px solid #eaecf0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-              <span
-                style={{
-                  background: '#1d63c0',
-                  color: '#fff',
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '3px 10px',
-                  borderRadius: '9999px',
-                }}
-              >
-                1호선
-              </span>
-              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040' }}>의왕역 하차</span>
-            </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                '일반버스 1-2번(마을버스 01·02) 하차 후 환승 → 일반 87번(고천, 의왕시청) → 왕림윗마을 정류장 하차',
-                '일반버스 5번, 64번, 65번 하차 후 환승 → 일반 87번 → 왕림윗마을 하차',
-                '일반 777번, 301번 / 직행 3000번, 8409번 하차 후 환승 → 일반 87번 → 왕림윗마을 하차',
-              ].map((r, i) => (
-                <li key={i} style={{ display: 'flex', gap: '10px', fontSize: '0.82rem', color: '#374151', lineHeight: 1.7 }}>
-                  <span style={{ flexShrink: 0, color: '#9ca3af' }}>·</span>
-                  {r}
-                </li>
-              ))}
-            </ul>
+            {transportSections.map((sec, i) => (
+              <div key={i} style={{ background: '#f6f8fb', borderRadius: '12px', padding: '20px', border: '1px solid #eaecf0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <span style={{ background: sec.lineColor || '#1d63c0', color: '#fff', fontSize: '0.72rem', fontWeight: 800, padding: '3px 10px', borderRadius: '9999px' }}>
+                    {sec.lineName}
+                  </span>
+                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040' }}>{sec.stationInfo}</span>
+                </div>
+                <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {(sec.routes || []).map((r, ri) => (
+                    <li key={ri} style={{ display: 'flex', gap: '10px', fontSize: '0.82rem', color: '#374151', lineHeight: 1.7 }}>
+                      <span style={{ flexShrink: 0, color: '#9ca3af' }}>·</span>
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+
+            {kakaoMapUrl && (
+              <a href={kakaoMapUrl} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px', background: '#FEE500', color: '#1a1a1a', borderRadius: '9999px', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none', alignSelf: 'flex-start' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                카카오맵으로 길찾기
+              </a>
+            )}
           </div>
-
-          {/* 4호선 */}
-          <div style={{ background: '#f6f8fb', borderRadius: '12px', padding: '20px', border: '1px solid #eaecf0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-              <span
-                style={{
-                  background: '#00a2e8',
-                  color: '#fff',
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  padding: '3px 10px',
-                  borderRadius: '9999px',
-                }}
-              >
-                4호선
-              </span>
-              <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040' }}>환승 이용</span>
-            </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                '일반 301번, 10번 / 좌석 300번 하차 후 환승 → 일반 87번 → 왕림윗마을 하차',
-                '일반 777번, 441번 하차 후 환승 → 일반 87번 → 왕림윗마을 하차',
-                '직행 3000번, 3102번(의왕톨게이트 정류장 하차) → 일반 87번(고천체육공원) → 왕림윗마을 하차',
-              ].map((r, i) => (
-                <li key={i} style={{ display: 'flex', gap: '10px', fontSize: '0.82rem', color: '#374151', lineHeight: 1.7 }}>
-                  <span style={{ flexShrink: 0, color: '#9ca3af' }}>·</span>
-                  {r}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 지도 링크 */}
-          <a
-            href="https://map.kakao.com/link/search/경기도 의왕시 왕곡로 187번지"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 24px',
-              background: '#FEE500',
-              color: '#1a1a1a',
-              borderRadius: '9999px',
-              fontWeight: 700,
-              fontSize: '0.875rem',
-              textDecoration: 'none',
-              alignSelf: 'flex-start',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="#1a1a1a"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-            카카오맵으로 길찾기
-          </a>
-        </div>
+        )}
       </div>
     </SubLayout>
   )

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useSettings } from '../contexts/SettingsContext'
 
 const menus = [
   {
@@ -47,7 +48,7 @@ const menus = [
       { label: '주보보기', path: '/community/bulletin' },
       { label: '행사갤러리', path: '/community/gallery' },
       { label: '행사동영상', path: '/community/video' },
-      { label: '새가족소개', path: '/community/newcomer' },
+      { label: '새신자소개', path: '/community/newcomer' },
       { label: '부서자료실', path: '/community/resources' },
       { label: '공지사항', path: '/community/notice' },
       { label: '영선관리', path: '/community/farm' },
@@ -59,6 +60,7 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hovered, setHovered] = useState(null)
   const location = useLocation()
+  const { phone } = useSettings()
 
   const isActive = m => location.pathname.startsWith(m.path)
 
@@ -194,7 +196,7 @@ export default function Header() {
 
         {/* 전화번호 */}
         <a
-          href="tel:031-429-4557"
+          href={`tel:${phone}`}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -218,7 +220,7 @@ export default function Header() {
           </div>
           <div style={{ lineHeight: 1.3 }}>
             <p style={{ fontSize: '0.7rem', color: '#9ca3af', fontWeight: 500 }}>전화문의</p>
-            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f2040' }}>031-429-4557</p>
+            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f2040' }}>{phone}</p>
           </div>
         </a>
 

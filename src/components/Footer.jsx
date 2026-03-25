@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useSettings } from '../contexts/SettingsContext'
 
 const cols = [
   {
@@ -49,6 +50,7 @@ const cols = [
 ]
 
 export default function Footer() {
+  const { churchName, representative, privacyManager, address, phone, fax, email, tagline } = useSettings()
   return (
     <footer style={{ background: '#0D1F40' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 clamp(1rem, 4vw, 3rem)' }}>
@@ -75,8 +77,8 @@ export default function Footer() {
             }}>
               <img src="/images/logo.png" alt="신애교회" style={{ display: 'block', height: '40px', width: 'auto' }} />
             </div>
-            <p style={{ fontSize: '0.75rem', lineHeight: 1.9, color: 'rgba(255,255,255,0.3)' }}>
-              말씀과 기도,<br />사랑과 섬김으로<br />세워진 공동체
+            <p style={{ fontSize: '0.75rem', lineHeight: 1.9, color: 'rgba(255,255,255,0.3)', whiteSpace: 'pre-line' }}>
+              {tagline}
             </p>
           </div>
 
@@ -90,6 +92,7 @@ export default function Footer() {
                   <li key={link.to}>
                     <Link
                       to={link.to}
+                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                       style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.35)', textDecoration: 'none', transition: 'color 0.15s' }}
                       onMouseEnter={e => e.currentTarget.style.color = '#fff'}
                       onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
@@ -106,22 +109,27 @@ export default function Footer() {
         {/* 하단 카피라이트 */}
         <div style={{ padding: '28px 0', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <address style={{ fontStyle: 'normal', fontSize: '0.78rem', color: 'rgba(255,255,255,0.3)', lineHeight: 2 }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>신애교회</span>
-            &nbsp;&nbsp;|&nbsp;&nbsp;대표 : 우용녀 목사
-            &nbsp;&nbsp;|&nbsp;&nbsp;개인정보관리 : 김영단
-            &nbsp;&nbsp;|&nbsp;&nbsp;주소 : 경기도 의왕시 왕곡로 187번지 (왕곡동)
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>{churchName}</span>
+            &nbsp;&nbsp;|&nbsp;&nbsp;대표 : {representative}
+            &nbsp;&nbsp;|&nbsp;&nbsp;개인정보관리 : {privacyManager}
+            &nbsp;&nbsp;|&nbsp;&nbsp;주소 : {address}
             <br />
-            전화 : 031-429-4557
-            &nbsp;&nbsp;|&nbsp;&nbsp;팩스 : 031-429-4557
+            전화 : {phone}
+            &nbsp;&nbsp;|&nbsp;&nbsp;팩스 : {fax}
             &nbsp;&nbsp;|&nbsp;&nbsp;이메일 :&nbsp;
-            <a href="mailto:shinaechurch@naver.com" style={{ color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}
+            <a href={`mailto:${email}`} style={{ color: 'rgba(255,255,255,0.3)', textDecoration: 'none' }}
               onMouseEnter={e => e.currentTarget.style.color = '#fff'}
               onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-            >shinaechurch@naver.com</a>
+            >{email}</a>
           </address>
-          <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.15)' }}>
-            Copyright © shinaechurch. All rights reserved.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+            <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.15)' }}>
+              Copyright © shinaechurch. All rights reserved.
+            </p>
+            <Link to="/admin/login" style={{ color: 'rgba(255,255,255,0.08)', textDecoration: 'none', fontSize: '0.68rem', flexShrink: 0 }}>
+              관리자
+            </Link>
+          </div>
         </div>
       </div>
 

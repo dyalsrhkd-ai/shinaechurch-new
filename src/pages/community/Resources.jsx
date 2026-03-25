@@ -5,7 +5,7 @@ const menus = [
   { label: '주보보기',   path: '/community/bulletin' },
   { label: '행사갤러리', path: '/community/gallery' },
   { label: '행사동영상', path: '/community/video' },
-  { label: '새가족소개', path: '/community/newcomer' },
+  { label: '새신자소개', path: '/community/newcomer' },
   { label: '부서자료실', path: '/community/resources' },
   { label: '공지사항',   path: '/community/notice' },
   { label: '영선관리',   path: '/community/farm' },

@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { collection, getDocs, orderBy, query } from 'firebase/firestore'
+import { db } from '../../firebase'
 import SubLayout from '../../components/SubLayout'
 
 const menus = [
@@ -6,91 +8,100 @@ const menus = [
   { label: '주보보기',   path: '/community/bulletin' },
   { label: '행사갤러리', path: '/community/gallery' },
   { label: '행사동영상', path: '/community/video' },
-  { label: '새가족소개', path: '/community/newcomer' },
+  { label: '새신자소개', path: '/community/newcomer' },
   { label: '부서자료실', path: '/community/resources' },
   { label: '공지사항',   path: '/community/notice' },
   { label: '영선관리',   path: '/community/farm' },
 ]
 
-const entries = [
-  {
-    no: 9, title: '총회세미나 일정', date: '2019-01-16',
-    content: '2019.1.21(월) 신월동 신광교회 오전10:30분 시작\n교회차를 이용하실분은 9시까지 오시기 바랍니다.\n\n신광교회 주소 및 전화번호\n서울 양천구 중앙로 211  02)2605-7107',
-  },
-  {
-    no: 8, title: '1월 부서별 행사', date: '2019-01-07',
-    content: '1. 2019년 신애교회 직분자 교육안내\n2019년 1월 12일 오전9시\n제1강 신광교회 담임목사 김성민',
-  },
-  {
-    no: 7, title: '12월2일 세례식이 있습니다.', date: '2018-11-21',
-    content: '입교나 세례를 받으실 분들은 오전10시까지 오시기 바랍니다.\n목양실에서 세례문답이 있습니다.',
-  },
-  {
-    no: 6, title: '권사회 성탄트리', date: '2018-11-21',
-    content: '권사회에서 성탄트리를 장식하고 있습니다.\n처음 시작부터 남전도회에서 설치 작업을 도와주시고 권사회에서 장식을 하고 있습니다.',
-  },
-  {
-    no: 5, title: '2018.11.25. 교회 창립23주년예배', date: '2018-11-21',
-    content: '25일 신애교회 창립 23주년 예배를 드립니다.\n- 권사회 성탄트리\n- 추수감사절 꽃꽂이',
-  },
-  {
-    no: 4, title: '2018.11.18. 추수감사절', date: '2018-11-21',
-    content: '11.18일 추수감사절입니다.\n권사회에서 꽃꽂이를 준비하고 있으니 과일을 드리고 싶으신 분은 권사님들께 연락 주세요.',
-  },
-  {
-    no: 3, title: '2018.11.12~ 권사회 김장김치 판매', date: '2018-11-21',
-    content: '2018.11.12~ 권사회 김장김치 판매합니다.\n절임배추 20kg 3만원, 김장김치 10kg 7만원, 20kg 13만원',
-  },
-  {
-    no: 2, title: '오후2시 연합남전도 헌신예배가 있습니다.', date: '2018-09-16',
-    content: '오후 2시 연합남전도 헌신예배가 있습니다.',
-  },
-  {
-    no: 1, title: '성경대학 개강예배는 9월11일(화)', date: '2018-09-09',
-    content: '성경대학 개강예배는 9월11일(화)\n장소: 강원도\n오전 8시30분 교회에서 출발',
-  },
-]
+
+function formatDate(ts) {
+  if (!ts) return ''
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function Notice() {
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(null)
+
+  useEffect(() => {
+    const q = query(collection(db, 'notices'), orderBy('date', 'desc'))
+    getDocs(q)
+      .then(snap => setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <SubLayout section="교제와 나눔" menus={menus} title="공지사항">
-      <div style={{ border: '1px solid #eaecf0', borderRadius: '12px', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', background: '#0f2040', padding: '12px 20px' }}>
-          {['번호', '제목', '등록일'].map(h => (
-            <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
+      {loading ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
+      ) : entries.length === 0 ? (
+        <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>등록된 공지사항이 없습니다.</div>
+      ) : (
+        <div style={{ border: '1px solid #eaecf0', borderRadius: '12px', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 110px', background: '#0f2040', padding: '12px 20px' }}>
+            {['번호', '제목', '등록일'].map(h => (
+              <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
+            ))}
+          </div>
+          {entries.map((e, i) => (
+            <div key={e.id}>
+              <div
+                onClick={() => setOpen(open === i ? null : i)}
+                style={{
+                  display: 'grid', gridTemplateColumns: '60px 1fr 110px',
+                  padding: '14px 20px',
+                  borderBottom: open === i ? 'none' : (i < entries.length - 1 ? '1px solid #f0f2f5' : 'none'),
+                  background: i % 2 === 0 ? '#fff' : '#fafbfc',
+                  cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s',
+                }}
+                onMouseEnter={el => el.currentTarget.style.background = '#f0f7ff'}
+                onMouseLeave={el => el.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
+              >
+                <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>{entries.length - i}</span>
+                <span style={{ fontSize: '0.875rem', color: '#0f2040', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {e.badge && (
+                    <span style={{
+                      fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '9999px', flexShrink: 0,
+                      background: e.badge === '모집' ? '#fff7ed' : e.badge === '안내' ? '#f0fdf4' : '#eff6ff',
+                      color: e.badge === '모집' ? '#c2610c' : e.badge === '안내' ? '#15803d' : '#1d4ed8',
+                    }}>{e.badge}</span>
+                  )}
+                  {e.title}
+                  {e.fileUrl && (
+                    <svg width="13" height="13" fill="#1d4ed8" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
+                  )}
+                  <span style={{ fontSize: '0.7rem', color: open === i ? '#0284c7' : '#9ca3af', marginLeft: 'auto' }}>{open === i ? '▲' : '▼'}</span>
+                </span>
+                <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>{formatDate(e.date)}</span>
+              </div>
+              {open === i && (
+                <div style={{ padding: '20px 24px', background: '#f8fafc', borderBottom: i < entries.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
+                  {e.content ? (
+                    <pre style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{e.content}</pre>
+                  ) : (
+                    <p style={{ fontSize: '0.875rem', color: '#9ca3af', margin: 0 }}>내용이 없습니다.</p>
+                  )}
+                  {e.fileUrl && (
+                    <a
+                      href={e.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '16px', padding: '8px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '0.825rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      <svg width="14" height="14" fill="none" stroke="#1d4ed8" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      {e.fileName || '첨부파일 다운로드'}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </div>
-        {entries.map((e, i) => (
-          <div key={e.no}>
-            <div
-              onClick={() => setOpen(open === i ? null : i)}
-              style={{
-                display: 'grid', gridTemplateColumns: '60px 1fr 110px',
-                padding: '14px 20px',
-                borderBottom: open === i ? 'none' : (i < entries.length - 1 ? '1px solid #f0f2f5' : 'none'),
-                background: i % 2 === 0 ? '#fff' : '#fafbfc',
-                cursor: 'pointer', alignItems: 'center', transition: 'background 0.15s',
-              }}
-              onMouseEnter={el => el.currentTarget.style.background = '#f0f7ff'}
-              onMouseLeave={el => el.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafbfc'}
-            >
-              <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>{e.no}</span>
-              <span style={{ fontSize: '0.875rem', color: '#0f2040', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {e.title}
-                <span style={{ fontSize: '0.7rem', color: open === i ? '#0284c7' : '#9ca3af' }}>{open === i ? '▲' : '▼'}</span>
-              </span>
-              <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>{e.date}</span>
-            </div>
-            {open === i && (
-              <div style={{ padding: '20px 24px', background: '#f8fafc', borderBottom: i < entries.length - 1 ? '1px solid #f0f2f5' : 'none' }}>
-                <pre style={{ fontSize: '0.875rem', color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{e.content}</pre>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      )}
     </SubLayout>
   )
 }
