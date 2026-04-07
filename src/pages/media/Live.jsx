@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useLocation, useParams } from 'react-router-dom'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import {
@@ -9,10 +9,6 @@ import {
 } from '../../utils/liveStream'
 
 const menus = LIVE_STREAM_CATEGORIES.map(({ label, path }) => ({ label, path }))
-
-function getAccessKey(streamKey) {
-  return `shinae_live_access_${streamKey}`
-}
 
 function InfoCard({ label, children }) {
   if (!children) return null
@@ -34,16 +30,16 @@ function PasswordGate({ label, onUnlock }) {
   return (
     <section style={{ maxWidth: '560px', margin: '0 auto', borderRadius: '24px', border: '1px solid #dbe4f0', background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)', padding: '32px' }}>
       <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8', fontSize: '0.95rem', fontWeight: 900, marginBottom: '20px' }}>
-        방송
+        입장
       </div>
       <p style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2563eb', marginBottom: '12px' }}>
         비공개 입장
       </p>
       <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#0f172a', marginBottom: '12px' }}>
-        {label} 라이브는 비밀번호를 입력해야 볼 수 있습니다.
+        {label} 라이브 영상은 비밀번호를 입력해야 볼 수 있습니다.
       </h2>
       <p style={{ fontSize: '0.92rem', lineHeight: 1.8, color: '#475569', marginBottom: '22px' }}>
-        관리자에게 전달받은 비밀번호를 입력해 주세요. 부서마다 비밀번호가 다를 수 있습니다.
+        카카오톡이나 문자로 전달받은 전용 링크가 있으면 바로 입장할 수 있고, 일반 주소로 들어온 경우에는 비밀번호를 입력해야 합니다.
       </p>
 
       <form
@@ -72,7 +68,7 @@ function PasswordGate({ label, onUnlock }) {
         />
         {error ? <p style={{ margin: 0, fontSize: '0.82rem', color: '#dc2626', fontWeight: 700 }}>{error}</p> : null}
         <button type="submit" style={{ padding: '14px 18px', borderRadius: '14px', border: 'none', background: '#0f172a', color: '#fff', fontSize: '0.92rem', fontWeight: 800, cursor: 'pointer' }}>
-          라이브영상 입장
+          라이브 영상 보기
         </button>
       </form>
     </section>
@@ -81,16 +77,17 @@ function PasswordGate({ label, onUnlock }) {
 
 export default function Live() {
   const { streamKey = 'main' } = useParams()
+  const location = useLocation()
   const { liveStreams } = useSettings()
   const category = LIVE_STREAM_CATEGORY_MAP[streamKey] || LIVE_STREAM_CATEGORY_MAP.main
   const stream = liveStreams?.[category.key] || liveStreams?.main || {}
   const password = String(stream.accessPassword || '').trim()
-  const [hasAccess, setHasAccess] = useState(() => sessionStorage.getItem(getAccessKey(category.key)) === 'granted')
+  const accessKey = String(stream.accessKey || '').trim()
+  const accessParam = new URLSearchParams(location.search).get('access')?.trim() || ''
 
-  useEffect(() => {
-    const accessKey = getAccessKey(category.key)
-    setHasAccess(!password || sessionStorage.getItem(accessKey) === 'granted')
-  }, [category.key, password])
+  const hasLinkAccess = Boolean(accessKey && accessParam && accessParam === accessKey)
+  const [passwordPassed, setPasswordPassed] = useState(false)
+  const hasAccess = hasLinkAccess || !password || passwordPassed
 
   const videoId = extractYoutubeVideoId(stream.youtubeUrl)
   const isLive = Boolean(stream.enabled && videoId)
@@ -107,8 +104,7 @@ export default function Live() {
     const success = String(value || '') === password
     if (!success) return false
 
-    sessionStorage.setItem(getAccessKey(category.key), 'granted')
-    setHasAccess(true)
+    setPasswordPassed(true)
     return true
   }
 
@@ -146,9 +142,9 @@ export default function Live() {
             ) : (
               <div style={{ padding: '72px 24px', textAlign: 'center' }}>
                 <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: '#fff', fontSize: '0.95rem', fontWeight: 900 }}>
-                  방송
+                  대기
                 </div>
-                <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출중인 영상이 없습니다.</p>
+                <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출 중인 영상이 없습니다.</p>
                 <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.92rem', lineHeight: 1.8, maxWidth: '520px', margin: '0 auto' }}>
                   예배 시작 전에는 관리자 페이지에서 {category.label} 설정을 저장하고 송출 시작을 눌러 주세요.
                 </p>

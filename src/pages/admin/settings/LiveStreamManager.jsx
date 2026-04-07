@@ -7,6 +7,7 @@ import {
   LIVE_STREAM_CATEGORIES,
   LIVE_STREAM_CATEGORY_MAP,
   extractYoutubeVideoId,
+  generateLiveAccessKey,
   normalizeLiveStreams,
 } from '../../../utils/liveStream'
 
@@ -22,7 +23,7 @@ function Field({ label, hint, children }) {
   )
 }
 
-function StreamSection({ category, draftStream, savedStream, onChange, onSave, onToggle, saving, toggling }) {
+function StreamSection({ category, draftStream, savedStream, onChange, onGenerateKey, onSave, onToggle, saving, toggling }) {
   const inputStyle = {
     width: '100%',
     padding: '11px 12px',
@@ -35,6 +36,9 @@ function StreamSection({ category, draftStream, savedStream, onChange, onSave, o
   const draftVideoId = useMemo(() => extractYoutubeVideoId(draftStream.youtubeUrl), [draftStream.youtubeUrl])
   const savedVideoId = useMemo(() => extractYoutubeVideoId(savedStream.youtubeUrl), [savedStream.youtubeUrl])
   const hasInitialSetup = Boolean(savedVideoId)
+  const accessLink = typeof window !== 'undefined' && draftStream.accessKey
+    ? `${window.location.origin}${window.location.pathname}#/media/live/${category.key}?access=${encodeURIComponent(draftStream.accessKey)}`
+    : ''
 
   return (
     <section style={{ borderRadius: '20px', border: '1px solid #e5e7eb', background: '#fff', padding: '24px' }}>
@@ -85,12 +89,31 @@ function StreamSection({ category, draftStream, savedStream, onChange, onSave, o
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-          <Field label="공개 비밀번호" hint="비우면 바로 입장 가능">
+          <Field label="비밀번호" hint="일반 주소 접속용">
             <input type="password" value={draftStream.accessPassword} onChange={(event) => onChange(category.key, 'accessPassword', event.target.value)} placeholder={`${category.label} 비밀번호`} style={inputStyle} />
           </Field>
+          <Field label="전용 링크 키" hint="전용 링크 접속용">
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input value={draftStream.accessKey} onChange={(event) => onChange(category.key, 'accessKey', event.target.value)} placeholder={`${category.label} 전용 링크 키`} style={{ ...inputStyle, flex: 1 }} />
+              <button type="button" onClick={() => onGenerateKey(category.key)} style={{ padding: '0 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>
+                키 생성
+              </button>
+            </div>
+          </Field>
+        </div>
+
+        {draftStream.accessKey ? (
+          <div style={{ borderRadius: '14px', border: '1px solid #dbe4f0', background: '#f8fafc', padding: '14px 16px' }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginBottom: '8px' }}>전용 링크 예시</p>
+            <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.7, color: '#334155', wordBreak: 'break-all' }}>{accessLink}</p>
+          </div>
+        ) : null}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
           <Field label="오늘의 본문말씀 제목" hint="예: 요한복음 3장 16절">
             <input value={draftStream.scriptureTitle} onChange={(event) => onChange(category.key, 'scriptureTitle', event.target.value)} placeholder="오늘의 본문말씀 제목" style={inputStyle} />
           </Field>
+          <div />
         </div>
 
         <Field label="오늘의 본문말씀 내용">
@@ -159,6 +182,10 @@ export default function LiveStreamManager() {
     }))
   }
 
+  const generateAccessKeyForStream = (targetKey) => {
+    updateStreamField(targetKey, 'accessKey', generateLiveAccessKey())
+  }
+
   const saveStream = async (targetKey) => {
     const draftStream = draftStreams[targetKey]
     const videoId = extractYoutubeVideoId(draftStream.youtubeUrl)
@@ -177,6 +204,7 @@ export default function LiveStreamManager() {
           title: draftStream.title.trim(),
           youtubeUrl: draftStream.youtubeUrl.trim(),
           accessPassword: draftStream.accessPassword.trim(),
+          accessKey: draftStream.accessKey.trim(),
           scriptureTitle: draftStream.scriptureTitle.trim(),
           scriptureText: draftStream.scriptureText.trim(),
           notice: draftStream.notice.trim(),
@@ -242,6 +270,9 @@ export default function LiveStreamManager() {
       <div>
         <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#0f172a' }}>{activeCategory.label} 라이브 영상 관리</h1>
         <p style={{ marginTop: '6px', fontSize: '0.85rem', color: '#64748b' }}>
+          부서별 비밀번호와 전용 링크 키를 각각 따로 관리합니다.
+        </p>
+        <div style={{ marginTop: '10px' }}>
           {LIVE_STREAM_CATEGORIES.map((category) => (
             <Link
               key={category.key}
@@ -262,7 +293,7 @@ export default function LiveStreamManager() {
               {category.label}
             </Link>
           ))}
-        </p>
+        </div>
       </div>
 
       <StreamSection
@@ -270,6 +301,7 @@ export default function LiveStreamManager() {
         draftStream={draftStreams[activeCategory.key]}
         savedStream={savedStreams[activeCategory.key]}
         onChange={updateStreamField}
+        onGenerateKey={generateAccessKeyForStream}
         onSave={saveStream}
         onToggle={toggleStream}
         saving={savingStreamKey === activeCategory.key}

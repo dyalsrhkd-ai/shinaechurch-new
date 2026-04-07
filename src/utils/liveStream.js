@@ -1,8 +1,8 @@
 export const LIVE_STREAM_CATEGORIES = [
-  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 라이브영상' },
-  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 라이브영상' },
-  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 라이브영상' },
-  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '실시간 예배 방송' },
+  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 라이브 영상' },
+  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 라이브 영상' },
+  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 라이브 영상' },
+  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '대예배 실시간 예배 방송' },
 ]
 
 export const LIVE_STREAM_CATEGORY_MAP = Object.fromEntries(
@@ -14,6 +14,7 @@ export const DEFAULT_LIVE_STREAM = {
   title: '실시간 예배 방송',
   youtubeUrl: '',
   accessPassword: '',
+  accessKey: '',
   scriptureTitle: '',
   scriptureText: '',
   notice: '',
@@ -45,6 +46,7 @@ export function normalizeLiveStreams(input, legacyStream = null, legacyPassword 
     }
 
     accumulator[category.key].accessPassword = String(accumulator[category.key].accessPassword || '').trim()
+    accumulator[category.key].accessKey = String(accumulator[category.key].accessKey || '').trim()
 
     return accumulator
   }, {})
@@ -79,4 +81,20 @@ export function extractYoutubeVideoId(value) {
   }
 
   return ''
+}
+
+export function generateLiveAccessKey() {
+  const cryptoApi = globalThis.crypto
+
+  if (cryptoApi?.randomUUID) {
+    return cryptoApi.randomUUID().replace(/-/g, '').slice(0, 20)
+  }
+
+  if (cryptoApi?.getRandomValues) {
+    const buffer = new Uint32Array(4)
+    cryptoApi.getRandomValues(buffer)
+    return Array.from(buffer, (value) => value.toString(36)).join('').slice(0, 20)
+  }
+
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`.slice(0, 20)
 }
