@@ -79,8 +79,15 @@ function getAccessParam(location) {
   const directParam = new URLSearchParams(location.search).get('access')?.trim()
   if (directParam) return directParam
 
-  const hashQuery = location.hash.includes('?') ? location.hash.split('?')[1] : ''
-  return new URLSearchParams(hashQuery).get('access')?.trim() || ''
+  if (typeof window !== 'undefined') {
+    const rawHash = window.location.hash || ''
+    const hashQuery = rawHash.includes('?') ? rawHash.slice(rawHash.indexOf('?') + 1) : ''
+    const hashParam = new URLSearchParams(hashQuery).get('access')?.trim()
+    if (hashParam) return hashParam
+  }
+
+  const fallbackHash = location.hash && location.hash.includes('?') ? location.hash.slice(location.hash.indexOf('?') + 1) : ''
+  return new URLSearchParams(fallbackHash).get('access')?.trim() || ''
 }
 
 export default function Live() {

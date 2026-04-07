@@ -40,7 +40,7 @@ function Field({ label, hint, children }) {
   )
 }
 
-function StreamSection({ category, draftStream, savedStream, onChange, onGenerateKey, onToggle, toggling }) {
+function StreamSection({ category, draftStream, savedStream, onChange, onGenerateKey, onToggle, generating, toggling }) {
   const inputStyle = {
     width: '100%',
     padding: '11px 12px',
@@ -114,8 +114,13 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
           <Field label="전용 링크 키" hint="카톡 링크 접속용">
             <div style={{ display: 'flex', gap: '10px' }}>
               <input value={draftStream.accessKey} onChange={(event) => onChange(category.key, 'accessKey', event.target.value)} placeholder={`${category.label} 전용 링크 키`} style={{ ...inputStyle, flex: 1 }} />
-              <button type="button" onClick={() => onGenerateKey(category.key)} style={{ padding: '0 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>
-                키 생성
+              <button
+                type="button"
+                onClick={() => onGenerateKey(category.key)}
+                disabled={generating}
+                style={{ padding: '0 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 800, cursor: generating ? 'default' : 'pointer', flexShrink: 0, opacity: generating ? 0.45 : 1 }}
+              >
+                {generating ? '생성 중...' : '키 생성'}
               </button>
             </div>
           </Field>
@@ -125,6 +130,7 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
           <div style={{ borderRadius: '14px', border: '1px solid #dbe4f0', background: '#f8fafc', padding: '14px 16px' }}>
             <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginBottom: '8px' }}>전용 링크 예시</p>
             <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.7, color: '#334155', wordBreak: 'break-all' }}>{accessLink}</p>
+            <p style={{ margin: '8px 0 0', fontSize: '0.78rem', color: '#64748b' }}>키를 다시 생성하기 전까지 이 링크는 그대로 유지됩니다.</p>
           </div>
         ) : null}
 
@@ -140,6 +146,7 @@ export default function LiveStreamManager() {
   const { streamKey = 'main' } = useParams()
   const [loading, setLoading] = useState(true)
   const [savingStreamKey, setSavingStreamKey] = useState('')
+  const [generatingStreamKey, setGeneratingStreamKey] = useState('')
   const [togglingStreamKey, setTogglingStreamKey] = useState('')
   const [draftStreams, setDraftStreams] = useState(DEFAULT_LIVE_STREAMS)
   const [savedStreams, setSavedStreams] = useState(DEFAULT_LIVE_STREAMS)
@@ -176,8 +183,48 @@ export default function LiveStreamManager() {
     }))
   }
 
-  const generateAccessKeyForStream = (targetKey) => {
-    updateStreamField(targetKey, 'accessKey', generateLiveAccessKey())
+  const generateAccessKeyForStream = async (targetKey) => {
+    const nextAccessKey = generateLiveAccessKey()
+
+    setGeneratingStreamKey(targetKey)
+    setDraftStreams((current) => ({
+      ...current,
+      [targetKey]: {
+        ...current[targetKey],
+        accessKey: nextAccessKey,
+      },
+    }))
+
+    try {
+      const nextStreams = {
+        ...savedStreams,
+        [targetKey]: {
+          ...savedStreams[targetKey],
+          accessKey: nextAccessKey,
+        },
+      }
+
+      await setDoc(doc(db, 'settings', 'main'), {
+        liveStreams: nextStreams,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+
+      setSavedStreams(nextStreams)
+      const label = LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브 영상'
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: `${label} 전용 링크를 생성했습니다.` } }))
+      alert(`${label} 전용 링크를 생성했습니다.`)
+    } catch (error) {
+      setDraftStreams((current) => ({
+        ...current,
+        [targetKey]: {
+          ...current[targetKey],
+          accessKey: savedStreams[targetKey]?.accessKey || '',
+        },
+      }))
+      alert(`오류: ${error.message}`)
+    }
+
+    setGeneratingStreamKey('')
   }
 
   const saveStream = async (targetKey) => {
@@ -288,6 +335,7 @@ export default function LiveStreamManager() {
         onChange={updateStreamField}
         onGenerateKey={generateAccessKeyForStream}
         onToggle={toggleStream}
+        generating={generatingStreamKey === activeCategory.key}
         toggling={togglingStreamKey === activeCategory.key}
       />
     </div>
