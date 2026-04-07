@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -107,6 +107,14 @@ export default function Live() {
   const videoId = extractYoutubeVideoId(stream.youtubeUrl)
   const isLive = Boolean(stream.enabled && videoId)
 
+  const scriptureContent = useMemo(() => {
+    if (stream.scriptureTitle && stream.scriptureText) {
+      return `${stream.scriptureTitle}\n${stream.scriptureText}`
+    }
+
+    return stream.scriptureTitle || stream.scriptureText || ''
+  }, [stream.scriptureText, stream.scriptureTitle])
+
   const handleUnlock = (value) => {
     const success = String(value || '') === password
     if (!success) return false
@@ -161,6 +169,7 @@ export default function Live() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
             <InfoCard label="설교제목">{stream.sermonTitle}</InfoCard>
+            <InfoCard label="오늘의 본문말씀">{scriptureContent}</InfoCard>
           </div>
         </div>
       )}

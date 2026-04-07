@@ -137,6 +137,17 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
         <Field label="설교제목">
           <input value={draftStream.sermonTitle} onChange={(event) => onChange(category.key, 'sermonTitle', event.target.value)} placeholder={`${category.label} 설교제목`} style={inputStyle} />
         </Field>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <Field label="오늘의 본문말씀 제목">
+            <input value={draftStream.scriptureTitle} onChange={(event) => onChange(category.key, 'scriptureTitle', event.target.value)} placeholder="예: 요한복음 3장 16절" style={inputStyle} />
+          </Field>
+          <div />
+        </div>
+
+        <Field label="오늘의 본문말씀 내용">
+          <textarea value={draftStream.scriptureText} onChange={(event) => onChange(category.key, 'scriptureText', event.target.value)} rows={5} style={{ ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }} />
+        </Field>
       </div>
     </section>
   )
@@ -247,6 +258,8 @@ export default function LiveStreamManager() {
           accessPassword: draftStream.accessPassword.trim(),
           accessKey: draftStream.accessKey.trim(),
           sermonTitle: draftStream.sermonTitle.trim(),
+          scriptureTitle: draftStream.scriptureTitle.trim(),
+          scriptureText: draftStream.scriptureText.trim(),
         },
       }
 
@@ -309,7 +322,7 @@ export default function LiveStreamManager() {
       <div>
         <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#0f172a' }}>{activeCategory.label} 라이브 영상 관리</h1>
         <p style={{ marginTop: '6px', fontSize: '0.85rem', color: '#64748b' }}>
-          부서별 비밀번호와 전용 링크 키를 따로 관리하고, 화면에는 방송 제목과 설교제목만 노출됩니다.
+          부서별 비밀번호와 전용 링크 키를 따로 관리하고, 화면에는 설교제목과 오늘의 본문말씀이 함께 노출됩니다.
         </p>
       </div>
 
