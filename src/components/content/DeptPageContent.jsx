@@ -1,6 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import { getYoutubeThumb } from '../../data/media'
 
+const colorInputStyle = {
+  width: '44px',
+  height: '32px',
+  border: '1px solid #cbd5e1',
+  borderRadius: '8px',
+  background: '#fff',
+  cursor: 'pointer',
+  padding: '2px',
+}
+
 function EditableInlineText({ value, placeholder, onChange, style, as = 'div' }) {
   const Tag = as
   const ref = useRef(null)
@@ -67,7 +77,11 @@ export default function DeptPageContent({
   return (
     <>
       <div onClick={() => editable && onSectionClick('hero')} style={{ marginBottom: '28px', borderRadius: '14px', overflow: 'hidden', border: '1px solid #eaecf0', position: 'relative', cursor: editable ? 'text' : 'default' }}>
-        <img src={pageState.heroImage} alt="부서별" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+        {pageState.heroImage ? (
+          <img src={pageState.heroImage} alt="부서별" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '300px', background: 'linear-gradient(135deg, #0f172a, #1e293b)' }} />
+        )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,23,42,0.72), rgba(15,23,42,0.18))' }} />
         <div style={{ position: 'absolute', left: '24px', right: '24px', bottom: '24px' }}>
           {editable && activeSection === 'hero' ? (
@@ -115,6 +129,20 @@ export default function DeptPageContent({
               </div>
 
               <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {editable && isActive ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b' }}>부서 색상</span>
+                    <input
+                      type="color"
+                      value={group.color || '#1d4ed8'}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => onGroupChange(group.id, 'color', event.target.value)}
+                      style={colorInputStyle}
+                    />
+                    <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>{group.color || '#1d4ed8'}</span>
+                  </div>
+                ) : null}
+
                 <div style={{ background: '#f6f8fb', borderRadius: '10px', padding: '14px 16px', borderLeft: `3px solid ${group.color || '#1d4ed8'}` }}>
                   {editable && isActive ? (
                     <EditableInlineText value={group.verse} placeholder="성구 또는 핵심 문구" onChange={value => onGroupChange(group.id, 'verse', value)} style={{ fontSize: '0.82rem', color: '#374151', lineHeight: 1.8, fontStyle: 'italic', whiteSpace: 'pre-wrap' }} as="div" />

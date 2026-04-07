@@ -105,6 +105,17 @@ export const defaultDeptGroups = [
   },
 ]
 
+export const deptGroupColorPalette = [
+  '#1d4ed8',
+  '#7c3aed',
+  '#059669',
+  '#d97706',
+  '#dc2626',
+  '#0f766e',
+  '#475569',
+  '#db2777',
+]
+
 export function createDefaultDeptGroups() {
   return defaultDeptGroups.map(group => ({ ...group }))
 }

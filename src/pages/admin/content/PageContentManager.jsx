@@ -11,6 +11,7 @@ import {
   createBlock,
   createDefaultDeptGroups,
   createDefaultPageState,
+  deptGroupColorPalette,
   normalizePageState,
 } from '../../../data/pageContent'
 import { useGalleryItems, useVideoItems } from '../../../hooks/useMediaItems'
@@ -171,7 +172,7 @@ export default function PageContentManager({ title, description, pages }) {
     [pages, selectedId]
   )
   const specialMinistryPageIds = useMemo(
-    () => new Set(['ministry-men', 'ministry-women', 'ministry-deaconess']),
+    () => new Set(['ministry-men', 'ministry-women', 'ministry-deaconess', 'ministry-haenam']),
     []
   )
   const specialSchoolPageIds = useMemo(
@@ -508,13 +509,11 @@ export default function PageContentManager({ title, description, pages }) {
                         }}
                         onGroupAdd={() => {
                           const nextIndex = (pageState.deptGroups || []).length + 1
-                          const defaults = createDefaultDeptGroups()
-                          const fallback = defaults[Math.min(nextIndex - 1, defaults.length - 1)]
                           const nextGroup = {
                             id: `dept-extra-${Date.now()}`,
                             dept: `부서 ${nextIndex}`,
                             title: `부서 ${nextIndex}`,
-                            color: fallback?.color || '#475569',
+                            color: deptGroupColorPalette[(nextIndex - 1) % deptGroupColorPalette.length],
                             verse: '',
                             desc: '',
                             schedulesText: '',
