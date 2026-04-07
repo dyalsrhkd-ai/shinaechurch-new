@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
-import { auth } from '../../firebase'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
+import { useSettings } from '../../contexts/SettingsContext'
 import { useAdminRouteLock } from '../../hooks/useAdminRouteLock'
 import { MENU_GROUPS } from './menuItems'
-import { getVisitorSummary } from '../../utils/visitorAnalytics'
+import { subscribeVisitorSummary } from '../../utils/visitorAnalytics'
+import { releaseAdminUserSession, setAdminLogoutReason } from '../../utils/adminSession'
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000
 const HANGUL_BASE = 0xac00
@@ -63,7 +66,8 @@ function createToast(message) {
 }
 
 export default function AdminLayout({ children }) {
-  const { user } = useAuth()
+  const { user, sessionReady } = useAuth()
+  const { churchName, logoUrl } = useSettings()
   const location = useLocation()
   const navigate = useNavigate()
   const contentRef = useRef(null)
@@ -152,12 +156,39 @@ export default function AdminLayout({ children }) {
   }, [location.pathname])
 
   useEffect(() => {
-    const markSaved = () => setHasUnsavedChanges(false)
+    const writeActivityLog = async (detail = {}) => {
+      if (!user) return
+      try {
+        await addDoc(collection(db, 'admin_activity_logs'), {
+          createdAt: serverTimestamp(),
+          uid: user.uid,
+          userEmail: user.email || '',
+          path: detail.path || location.pathname,
+          routeLabel: detail.routeLabel || routeLabel,
+          action: detail.action || 'save',
+          target: detail.target || routeLabel,
+          description: detail.message || detail.description || `${routeLabel} 저장`,
+        })
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    const markSaved = (event) => {
+      setHasUnsavedChanges(false)
+      writeActivityLog(event?.detail || {})
+    }
+    const handleActivity = (event) => {
+      writeActivityLog(event?.detail || {})
+    }
+
     window.addEventListener('admin:changes-saved', markSaved)
+    window.addEventListener('admin:activity', handleActivity)
     return () => {
       window.removeEventListener('admin:changes-saved', markSaved)
+      window.removeEventListener('admin:activity', handleActivity)
     }
-  }, [])
+  }, [location.pathname, routeLabel, user])
 
   useEffect(() => {
     if (!shouldWarnUnsaved) return undefined
@@ -249,9 +280,11 @@ export default function AdminLayout({ children }) {
       expiredRef.current = true
       clearSessionTimer()
 
+      setAdminLogoutReason('세션이 만료되었습니다. 다시 로그인해 주세요.')
       alert('10분 동안 동작이 없어 세션이 만료되었습니다. 다시 로그인해 주세요.')
 
       try {
+        await releaseAdminUserSession(user).catch(console.error)
         await signOut(auth)
       } finally {
         navigate('/admin/login')
@@ -293,27 +326,18 @@ export default function AdminLayout({ children }) {
   useEffect(() => {
     if (!user) return undefined
 
-    let active = true
-
-    getVisitorSummary()
-      .then(stats => {
-        if (!active) return
-        setVisitorStats({
-          todayVisits: stats.todayVisits,
-          weekVisits: stats.weekVisits,
-          monthVisits: stats.monthVisits,
-          yearVisits: stats.yearVisits,
-          totalVisits: stats.totalVisits,
-        })
+    return subscribeVisitorSummary((stats) => {
+      setVisitorStats({
+        todayVisits: stats.todayVisits,
+        weekVisits: stats.weekVisits,
+        monthVisits: stats.monthVisits,
+        yearVisits: stats.yearVisits,
+        totalVisits: stats.totalVisits,
       })
-      .catch(console.error)
-
-    return () => {
-      active = false
-    }
+    }, console.error)
   }, [user])
 
-  if (user === undefined) {
+  if (!sessionReady) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}>
         <p style={{ color: '#9ca3af' }}>로딩 중...</p>
@@ -322,8 +346,7 @@ export default function AdminLayout({ children }) {
   }
 
   if (!user) {
-    navigate('/admin/login')
-    return null
+    return <Navigate to="/admin/login" replace />
   }
 
   return (
@@ -336,7 +359,7 @@ export default function AdminLayout({ children }) {
         <Link to="/admin/dashboard" style={{ textDecoration: 'none', padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ background: '#fff', borderRadius: '8px', padding: '4px 8px', flexShrink: 0 }}>
-              <img src="/images/logo.png" alt="신애교회" style={{ height: '26px', width: 'auto', display: 'block' }} />
+              {logoUrl ? <img src={logoUrl} alt={churchName} style={{ height: '26px', width: 'auto', display: 'block' }} /> : <span style={{ fontWeight: 900, color: '#0f2040' }}>{churchName}</span>}
             </div>
             <div>
               <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>안녕하세요!</p>
@@ -413,7 +436,7 @@ export default function AdminLayout({ children }) {
                       onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff' }}}
                       onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)' }}}
                     >
-                      <span style={{ fontSize: '0.9rem' }}>{item.icon}</span>
+                      {item.icon ? <span style={{ fontSize: '0.9rem' }}>{item.icon}</span> : null}
                       {item.label}
                     </Link>
                     {/* 별표 버튼 */}
@@ -510,7 +533,7 @@ export default function AdminLayout({ children }) {
                 연 {visitorStats.yearVisits.toLocaleString()}
               </span>
               <span style={{ padding: '6px 10px', borderRadius: '999px', background: '#eef2ff', color: '#3730a3', fontWeight: 800 }}>
-                총 {visitorStats.totalVisits.toLocaleString()}
+                총 누적 {visitorStats.totalVisits.toLocaleString()}
               </span>
             </div>
           </div>
