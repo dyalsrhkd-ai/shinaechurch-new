@@ -38,6 +38,12 @@ export const MENU_GROUPS = [
     ],
   },
   {
+    label: '선교',
+    items: [
+      { label: '선교 관리',       path: '/admin/missions',         icon: '🌍', color: '#2563eb', desc: '해외선교·국내선교 이미지 기록 관리', keywords: ['선교', '해외선교', '국내선교', '선교소식', '선교기록'] },
+    ],
+  },
+  {
     label: '교제와 나눔',
     items: [
       { label: '공지사항',        path: '/admin/notices',          icon: '📢', color: '#0369a1', desc: '공지 작성 및 수정', keywords: ['공지', '안내', '알림', '모집'] },
@@ -53,6 +59,9 @@ export const MENU_GROUPS = [
     label: '설정',
     items: [
       { label: '기본 정보',       path: '/admin/settings',         icon: '⚙️', color: '#6b7280', desc: '교회 연락처·표어 수정', keywords: ['설정', '기본설정', '연락처', '전화번호', '이메일', '팩스', '표어', '교회명'] },
+      { label: '영상송출 테스트', path: '/admin/settings/live-stream', icon: 'LIVE', color: '#dc2626', desc: '라이브 송출 주소와 시작/종료 상태를 관리', keywords: ['라이브', '영상송출', '송출', '유튜브', '실시간', '라이브영상'] },
+      { label: '방문 로그',       path: '/admin/visitor-logs',     icon: '📈', color: '#0ea5e9', desc: '운영 도메인 방문 로그 확인', keywords: ['방문자', '방문로그', '접속로그', 'analytics', '홈페이지방문'] },
+      { label: '활동 로그',       path: '/admin/activity-logs',    icon: '🧾', color: '#2563eb', desc: '관리자 저장·삭제 활동 확인', keywords: ['활동로그', '수정로그', '저장로그', '삭제로그', '관리자로그'] },
     ],
   },
 ]
