@@ -62,7 +62,7 @@ export const schoolContentPages = [
     label: '청년부',
     dept: '청년부',
     description: '소개, 예배 안내, 연간 일정, 활동 설명을 관리합니다.',
-    defaultHeroImage: '/images/user/user_p5_3.jpg',
+    defaultHeroImage: '/images/user/user_p6_1.jpg',
     defaultBlocks: ['intro', 'info', 'note', 'list'],
   },
   {
@@ -70,7 +70,7 @@ export const schoolContentPages = [
     label: '성경대학',
     dept: '성경대학',
     description: '소개, 모임 안내, 연간 일정, 활동 설명을 관리합니다.',
-    defaultHeroImage: '/images/user/user_p5_4.jpg',
+    defaultHeroImage: '/images/user/user_p7_1.jpg',
     defaultBlocks: ['intro', 'info', 'people'],
   },
 ]
