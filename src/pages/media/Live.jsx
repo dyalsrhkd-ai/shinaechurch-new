@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -15,7 +15,7 @@ function InfoCard({ label, children }) {
 
   return (
     <section style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '24px' }}>
-      <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
+      <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '10px' }}>
         {label}
       </p>
       <div style={{ fontSize: '0.97rem', lineHeight: 1.9, color: '#1f2937', whiteSpace: 'pre-line' }}>{children}</div>
@@ -32,7 +32,7 @@ function PasswordGate({ label, onUnlock }) {
       <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8', fontSize: '0.95rem', fontWeight: 900, marginBottom: '20px' }}>
         입장
       </div>
-      <p style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2563eb', marginBottom: '12px' }}>
+      <p style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.12em', color: '#2563eb', marginBottom: '12px' }}>
         비공개 입장
       </p>
       <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#0f172a', marginBottom: '12px' }}>
@@ -75,6 +75,14 @@ function PasswordGate({ label, onUnlock }) {
   )
 }
 
+function getAccessParam(location) {
+  const directParam = new URLSearchParams(location.search).get('access')?.trim()
+  if (directParam) return directParam
+
+  const hashQuery = location.hash.includes('?') ? location.hash.split('?')[1] : ''
+  return new URLSearchParams(hashQuery).get('access')?.trim() || ''
+}
+
 export default function Live() {
   const { streamKey = 'main' } = useParams()
   const location = useLocation()
@@ -83,7 +91,7 @@ export default function Live() {
   const stream = liveStreams?.[category.key] || liveStreams?.main || {}
   const password = String(stream.accessPassword || '').trim()
   const accessKey = String(stream.accessKey || '').trim()
-  const accessParam = new URLSearchParams(location.search).get('access')?.trim() || ''
+  const accessParam = getAccessParam(location)
 
   const hasLinkAccess = Boolean(accessKey && accessParam && accessParam === accessKey)
   const [passwordPassed, setPasswordPassed] = useState(false)
@@ -91,14 +99,6 @@ export default function Live() {
 
   const videoId = extractYoutubeVideoId(stream.youtubeUrl)
   const isLive = Boolean(stream.enabled && videoId)
-
-  const scriptureContent = useMemo(() => {
-    if (stream.scriptureTitle && stream.scriptureText) {
-      return `${stream.scriptureTitle}\n${stream.scriptureText}`
-    }
-
-    return stream.scriptureTitle || stream.scriptureText || ''
-  }, [stream.scriptureText, stream.scriptureTitle])
 
   const handleUnlock = (value) => {
     const success = String(value || '') === password
@@ -135,7 +135,7 @@ export default function Live() {
                     <p style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800 }}>{stream.title || category.defaultTitle}</p>
                   </div>
                   <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.84rem', lineHeight: 1.7, maxWidth: '460px' }}>
-                    방송실에서 송출 중인 유튜브 라이브가 이 페이지에 그대로 표시됩니다.
+                    방송 설정에 저장된 유튜브 라이브 영상을 이 페이지에서 바로 시청할 수 있습니다.
                   </p>
                 </div>
               </>
@@ -146,15 +146,14 @@ export default function Live() {
                 </div>
                 <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출 중인 영상이 없습니다.</p>
                 <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.92rem', lineHeight: 1.8, maxWidth: '520px', margin: '0 auto' }}>
-                  예배 시작 전에는 관리자 페이지에서 {category.label} 설정을 저장하고 송출 시작을 눌러 주세요.
+                  예배 시작 전에 관리자 페이지에서 {category.label} 영상을 저장하고 송출 시작을 눌러 주세요.
                 </p>
               </div>
             )}
           </section>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            <InfoCard label="오늘의 본문말씀">{scriptureContent}</InfoCard>
-            <InfoCard label="예배 안내">{stream.notice}</InfoCard>
+            <InfoCard label="설교제목">{stream.sermonTitle}</InfoCard>
           </div>
         </div>
       )}

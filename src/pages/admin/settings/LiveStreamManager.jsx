@@ -1,15 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { useParams } from 'react-router-dom'
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { db } from '../../../firebase'
 import {
   DEFAULT_LIVE_STREAMS,
-  LIVE_STREAM_CATEGORIES,
   LIVE_STREAM_CATEGORY_MAP,
   extractYoutubeVideoId,
   generateLiveAccessKey,
   normalizeLiveStreams,
 } from '../../../utils/liveStream'
+
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
 
 function Field({ label, hint, children }) {
   return (
@@ -23,7 +40,7 @@ function Field({ label, hint, children }) {
   )
 }
 
-function StreamSection({ category, draftStream, savedStream, onChange, onGenerateKey, onSave, onToggle, saving, toggling }) {
+function StreamSection({ category, draftStream, savedStream, onChange, onGenerateKey, onToggle, toggling }) {
   const inputStyle = {
     width: '100%',
     padding: '11px 12px',
@@ -44,18 +61,19 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
     <section style={{ borderRadius: '20px', border: '1px solid #e5e7eb', background: '#fff', padding: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '18px', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '20px' }}>
         <div>
-          <p style={{ fontSize: '0.78rem', fontWeight: 900, letterSpacing: '0.08em', color: savedStream.enabled ? '#dc2626' : '#2563eb', textTransform: 'uppercase', marginBottom: '8px' }}>
+          <p style={{ fontSize: '0.78rem', fontWeight: 900, letterSpacing: '0.08em', color: savedStream.enabled ? '#dc2626' : '#2563eb', marginBottom: '8px' }}>
             {category.label}
           </p>
           <p style={{ fontSize: '1.15rem', fontWeight: 900, color: '#0f172a' }}>
-            {savedStream.enabled ? `${category.label} 라이브가 송출 중입니다.` : `${category.label} 라이브가 대기 중입니다.`}
+            {savedStream.enabled ? `${category.label} 라이브 영상이 송출 중입니다.` : `${category.label} 라이브 영상이 대기 중입니다.`}
           </p>
           <p style={{ marginTop: '6px', fontSize: '0.84rem', color: '#64748b', lineHeight: 1.7 }}>
-            {hasInitialSetup ? '주소가 저장되어 있습니다. 시작과 종료 버튼으로 바로 제어할 수 있습니다.' : '먼저 유튜브 주소를 저장해야 송출 시작 버튼을 사용할 수 있습니다.'}
+            {hasInitialSetup ? '저장된 주소를 기준으로 송출 시작과 종료를 바로 제어할 수 있습니다.' : '먼저 유튜브 주소를 저장한 뒤 송출 시작 버튼을 사용할 수 있습니다.'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
+            type="button"
             onClick={() => onToggle(category.key, true)}
             disabled={toggling || !hasInitialSetup || savedStream.enabled}
             style={{ padding: '12px 18px', borderRadius: '10px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: 900, cursor: toggling || !hasInitialSetup || savedStream.enabled ? 'default' : 'pointer', opacity: toggling || !hasInitialSetup || savedStream.enabled ? 0.45 : 1 }}
@@ -63,6 +81,7 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
             송출 시작
           </button>
           <button
+            type="button"
             onClick={() => onToggle(category.key, false)}
             disabled={toggling || !hasInitialSetup || !savedStream.enabled}
             style={{ padding: '12px 18px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 900, cursor: toggling || !hasInitialSetup || !savedStream.enabled ? 'default' : 'pointer', opacity: toggling || !hasInitialSetup || !savedStream.enabled ? 0.45 : 1 }}
@@ -84,7 +103,7 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
             <input value={draftStream.title} onChange={(event) => onChange(category.key, 'title', event.target.value)} placeholder={`${category.label} 라이브 제목`} style={inputStyle} />
           </Field>
           <Field label="유튜브 라이브 주소 또는 영상 ID">
-            <input value={draftStream.youtubeUrl} onChange={(event) => onChange(category.key, 'youtubeUrl', event.target.value)} placeholder="유튜브 라이브 주소를 붙여넣으세요." style={inputStyle} />
+            <input value={draftStream.youtubeUrl} onChange={(event) => onChange(category.key, 'youtubeUrl', event.target.value)} placeholder="유튜브 라이브 주소를 붙여 넣어 주세요." style={inputStyle} />
           </Field>
         </div>
 
@@ -92,7 +111,7 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
           <Field label="비밀번호" hint="일반 주소 접속용">
             <input type="password" value={draftStream.accessPassword} onChange={(event) => onChange(category.key, 'accessPassword', event.target.value)} placeholder={`${category.label} 비밀번호`} style={inputStyle} />
           </Field>
-          <Field label="전용 링크 키" hint="전용 링크 접속용">
+          <Field label="전용 링크 키" hint="카톡 링크 접속용">
             <div style={{ display: 'flex', gap: '10px' }}>
               <input value={draftStream.accessKey} onChange={(event) => onChange(category.key, 'accessKey', event.target.value)} placeholder={`${category.label} 전용 링크 키`} style={{ ...inputStyle, flex: 1 }} />
               <button type="button" onClick={() => onGenerateKey(category.key)} style={{ padding: '0 14px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>
@@ -109,30 +128,9 @@ function StreamSection({ category, draftStream, savedStream, onChange, onGenerat
           </div>
         ) : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-          <Field label="오늘의 본문말씀 제목" hint="예: 요한복음 3장 16절">
-            <input value={draftStream.scriptureTitle} onChange={(event) => onChange(category.key, 'scriptureTitle', event.target.value)} placeholder="오늘의 본문말씀 제목" style={inputStyle} />
-          </Field>
-          <div />
-        </div>
-
-        <Field label="오늘의 본문말씀 내용">
-          <textarea value={draftStream.scriptureText} onChange={(event) => onChange(category.key, 'scriptureText', event.target.value)} rows={5} style={{ ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }} />
+        <Field label="설교제목">
+          <input value={draftStream.sermonTitle} onChange={(event) => onChange(category.key, 'sermonTitle', event.target.value)} placeholder={`${category.label} 설교제목`} style={inputStyle} />
         </Field>
-
-        <Field label="예배 안내 문구">
-          <textarea value={draftStream.notice} onChange={(event) => onChange(category.key, 'notice', event.target.value)} rows={4} style={{ ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }} />
-        </Field>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => onSave(category.key)}
-            disabled={saving || !draftVideoId}
-            style={{ padding: '12px 16px', borderRadius: '10px', border: 'none', background: '#0f172a', color: '#fff', fontWeight: 800, cursor: saving || !draftVideoId ? 'default' : 'pointer', opacity: saving || !draftVideoId ? 0.45 : 1 }}
-          >
-            {saving ? '저장 중...' : '설정 저장'}
-          </button>
-        </div>
       </div>
     </section>
   )
@@ -155,11 +153,7 @@ export default function LiveStreamManager() {
         const snap = await getDoc(doc(db, 'settings', 'main'))
         if (snap.exists()) {
           const data = snap.data()
-          const streams = normalizeLiveStreams(
-            data.liveStreams,
-            data.liveStreamTest,
-            data.liveAccessPassword,
-          )
+          const streams = normalizeLiveStreams(data.liveStreams, data.liveStreamTest, data.liveAccessPassword)
           setDraftStreams(streams)
           setSavedStreams(streams)
         }
@@ -190,7 +184,7 @@ export default function LiveStreamManager() {
     const draftStream = draftStreams[targetKey]
     const videoId = extractYoutubeVideoId(draftStream.youtubeUrl)
     if (!videoId) {
-      alert('유튜브 라이브 주소 또는 영상 ID를 먼저 입력하세요.')
+      alert('유튜브 라이브 주소 또는 영상 ID를 먼저 입력해 주세요.')
       return
     }
 
@@ -205,9 +199,7 @@ export default function LiveStreamManager() {
           youtubeUrl: draftStream.youtubeUrl.trim(),
           accessPassword: draftStream.accessPassword.trim(),
           accessKey: draftStream.accessKey.trim(),
-          scriptureTitle: draftStream.scriptureTitle.trim(),
-          scriptureText: draftStream.scriptureText.trim(),
-          notice: draftStream.notice.trim(),
+          sermonTitle: draftStream.sermonTitle.trim(),
         },
       }
 
@@ -218,11 +210,11 @@ export default function LiveStreamManager() {
 
       setSavedStreams(nextStreams)
       setDraftStreams(nextStreams)
-      const label = LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브'
+      const label = LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브 영상'
       window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: `${label} 설정을 저장했습니다.` } }))
       alert(`${label} 설정을 저장했습니다.`)
     } catch (error) {
-      alert('오류: ' + error.message)
+      alert(`오류: ${error.message}`)
     }
     setSavingStreamKey('')
   }
@@ -231,7 +223,7 @@ export default function LiveStreamManager() {
     const savedStream = savedStreams[targetKey]
     const videoId = extractYoutubeVideoId(savedStream?.youtubeUrl)
     if (!videoId) {
-      alert('먼저 해당 라이브 주소를 저장하세요.')
+      alert('먼저 해당 라이브 주소를 저장해 주세요.')
       return
     }
 
@@ -252,11 +244,11 @@ export default function LiveStreamManager() {
 
       setSavedStreams(nextStreams)
       setDraftStreams(nextStreams)
-      const label = LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브'
+      const label = LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브 영상'
       window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: enabled ? `${label} 송출을 시작했습니다.` : `${label} 송출을 종료했습니다.` } }))
       alert(enabled ? `${label} 송출을 시작했습니다.` : `${label} 송출을 종료했습니다.`)
     } catch (error) {
-      alert('오류: ' + error.message)
+      alert(`오류: ${error.message}`)
     }
     setTogglingStreamKey('')
   }
@@ -270,30 +262,23 @@ export default function LiveStreamManager() {
       <div>
         <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#0f172a' }}>{activeCategory.label} 라이브 영상 관리</h1>
         <p style={{ marginTop: '6px', fontSize: '0.85rem', color: '#64748b' }}>
-          부서별 비밀번호와 전용 링크 키를 각각 따로 관리합니다.
+          부서별 비밀번호와 전용 링크 키를 따로 관리하고, 화면에는 방송 제목과 설교제목만 노출됩니다.
         </p>
-        <div style={{ marginTop: '10px' }}>
-          {LIVE_STREAM_CATEGORIES.map((category) => (
-            <Link
-              key={category.key}
-              to={`/admin/live-streams/${category.key}`}
-              style={{
-                display: 'inline-flex',
-                marginRight: '8px',
-                marginTop: '8px',
-                padding: '8px 12px',
-                borderRadius: '999px',
-                textDecoration: 'none',
-                fontWeight: category.key === activeCategory.key ? 800 : 600,
-                fontSize: '0.8rem',
-                background: category.key === activeCategory.key ? '#dbeafe' : '#f1f5f9',
-                color: category.key === activeCategory.key ? '#1d4ed8' : '#475569',
-              }}
-            >
-              {category.label}
-            </Link>
-          ))}
+      </div>
+
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ margin: 0, fontSize: '0.78rem', fontWeight: 800, color: '#2563eb' }}>{activeCategory.label}</p>
+          <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: '#64748b' }}>현재 페이지의 설정만 저장합니다.</p>
         </div>
+        <button
+          type="button"
+          onClick={() => saveStream(activeCategory.key)}
+          disabled={savingStreamKey === activeCategory.key || !extractYoutubeVideoId(draftStreams[activeCategory.key]?.youtubeUrl)}
+          style={{ padding: '12px 18px', borderRadius: '12px', border: 'none', background: '#0f172a', color: '#fff', fontWeight: 800, cursor: savingStreamKey === activeCategory.key || !extractYoutubeVideoId(draftStreams[activeCategory.key]?.youtubeUrl) ? 'default' : 'pointer', opacity: savingStreamKey === activeCategory.key || !extractYoutubeVideoId(draftStreams[activeCategory.key]?.youtubeUrl) ? 0.45 : 1 }}
+        >
+          {savingStreamKey === activeCategory.key ? '저장 중...' : '설정 저장'}
+        </button>
       </div>
 
       <StreamSection
@@ -302,9 +287,7 @@ export default function LiveStreamManager() {
         savedStream={savedStreams[activeCategory.key]}
         onChange={updateStreamField}
         onGenerateKey={generateAccessKeyForStream}
-        onSave={saveStream}
         onToggle={toggleStream}
-        saving={savingStreamKey === activeCategory.key}
         toggling={togglingStreamKey === activeCategory.key}
       />
     </div>
