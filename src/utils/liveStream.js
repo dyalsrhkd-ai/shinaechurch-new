@@ -13,6 +13,7 @@ export const DEFAULT_LIVE_STREAM = {
   enabled: false,
   title: '실시간 예배 방송',
   youtubeUrl: '',
+  accessPassword: '',
   scriptureTitle: '',
   scriptureText: '',
   notice: '',
@@ -28,19 +29,22 @@ export const DEFAULT_LIVE_STREAMS = Object.fromEntries(
   ]),
 )
 
-export function normalizeLiveStreams(input, legacyStream = null) {
+export function normalizeLiveStreams(input, legacyStream = null, legacyPassword = '') {
   const source = input && typeof input === 'object' ? input : {}
 
   return LIVE_STREAM_CATEGORIES.reduce((accumulator, category) => {
     const categoryInput = source[category.key]
-    const fallback = category.key === 'main' && legacyStream ? legacyStream : null
+    const fallbackStream = category.key === 'main' && legacyStream ? legacyStream : null
 
     accumulator[category.key] = {
       ...DEFAULT_LIVE_STREAM,
       title: category.defaultTitle,
-      ...(fallback && typeof fallback === 'object' ? fallback : {}),
+      accessPassword: legacyPassword || '',
+      ...(fallbackStream && typeof fallbackStream === 'object' ? fallbackStream : {}),
       ...(categoryInput && typeof categoryInput === 'object' ? categoryInput : {}),
     }
+
+    accumulator[category.key].accessPassword = String(accumulator[category.key].accessPassword || '').trim()
 
     return accumulator
   }, {})

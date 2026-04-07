@@ -8,8 +8,11 @@ import {
   extractYoutubeVideoId,
 } from '../../utils/liveStream'
 
-const LIVE_ACCESS_KEY = 'shinae_live_access'
 const menus = LIVE_STREAM_CATEGORIES.map(({ label, path }) => ({ label, path }))
+
+function getAccessKey(streamKey) {
+  return `shinae_live_access_${streamKey}`
+}
 
 function InfoCard({ label, children }) {
   if (!children) return null
@@ -24,7 +27,7 @@ function InfoCard({ label, children }) {
   )
 }
 
-function PasswordGate({ onUnlock }) {
+function PasswordGate({ label, onUnlock }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState('')
 
@@ -37,10 +40,10 @@ function PasswordGate({ onUnlock }) {
         Private Access
       </p>
       <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#0f172a', marginBottom: '12px' }}>
-        비밀번호를 입력해야 라이브영상을 볼 수 있습니다.
+        {label} 라이브는 비밀번호를 입력해야 볼 수 있습니다.
       </h2>
       <p style={{ fontSize: '0.92rem', lineHeight: 1.8, color: '#475569', marginBottom: '22px' }}>
-        예배용 라이브영상은 접근 제한이 걸려 있습니다. 관리자에게 전달받은 비밀번호를 입력해 주세요.
+        관리자에게 전달받은 비밀번호를 입력해 주세요. 부서마다 비밀번호가 다를 수 있습니다.
       </p>
 
       <form
@@ -64,7 +67,7 @@ function PasswordGate({ onUnlock }) {
             setInput(event.target.value)
             if (error) setError('')
           }}
-          placeholder="비밀번호 입력"
+          placeholder={`${label} 비밀번호 입력`}
           style={{ width: '100%', padding: '14px 16px', borderRadius: '14px', border: error ? '1px solid #fca5a5' : '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
         />
         {error ? <p style={{ margin: 0, fontSize: '0.82rem', color: '#dc2626', fontWeight: 700 }}>{error}</p> : null}
@@ -78,21 +81,19 @@ function PasswordGate({ onUnlock }) {
 
 export default function Live() {
   const { streamKey = 'main' } = useParams()
-  const { liveAccessPassword, liveStreams } = useSettings()
-  const [hasAccess, setHasAccess] = useState(() => sessionStorage.getItem(LIVE_ACCESS_KEY) === 'granted')
-
+  const { liveStreams } = useSettings()
   const category = LIVE_STREAM_CATEGORY_MAP[streamKey] || LIVE_STREAM_CATEGORY_MAP.main
   const stream = liveStreams?.[category.key] || liveStreams?.main || {}
-  const videoId = extractYoutubeVideoId(stream.youtubeUrl)
-  const isLive = Boolean(stream.enabled && videoId)
-  const needsPassword = Boolean(liveAccessPassword)
+  const password = String(stream.accessPassword || '').trim()
+  const [hasAccess, setHasAccess] = useState(() => sessionStorage.getItem(getAccessKey(category.key)) === 'granted')
 
   useEffect(() => {
-    if (!needsPassword) {
-      setHasAccess(true)
-      sessionStorage.setItem(LIVE_ACCESS_KEY, 'granted')
-    }
-  }, [needsPassword])
+    const accessKey = getAccessKey(category.key)
+    setHasAccess(!password || sessionStorage.getItem(accessKey) === 'granted')
+  }, [category.key, password])
+
+  const videoId = extractYoutubeVideoId(stream.youtubeUrl)
+  const isLive = Boolean(stream.enabled && videoId)
 
   const scriptureContent = useMemo(() => {
     if (stream.scriptureTitle && stream.scriptureText) {
@@ -103,10 +104,10 @@ export default function Live() {
   }, [stream.scriptureText, stream.scriptureTitle])
 
   const handleUnlock = (value) => {
-    const success = String(value || '') === liveAccessPassword
+    const success = String(value || '') === password
     if (!success) return false
 
-    sessionStorage.setItem(LIVE_ACCESS_KEY, 'granted')
+    sessionStorage.setItem(getAccessKey(category.key), 'granted')
     setHasAccess(true)
     return true
   }
@@ -114,7 +115,7 @@ export default function Live() {
   return (
     <SubLayout section="라이브영상" menus={menus} title={category.label}>
       {!hasAccess ? (
-        <PasswordGate onUnlock={handleUnlock} />
+        <PasswordGate label={category.label} onUnlock={handleUnlock} />
       ) : (
         <div style={{ display: 'grid', gap: '20px' }}>
           <section style={{ borderRadius: '22px', overflow: 'hidden', border: '1px solid #dbe4f0', background: '#0f172a' }}>
@@ -149,7 +150,7 @@ export default function Live() {
                 </div>
                 <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출중인 영상이 없습니다.</p>
                 <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.92rem', lineHeight: 1.8, maxWidth: '520px', margin: '0 auto' }}>
-                  예배 시작 전에는 관리자 페이지에서 {category.label} 라이브 설정을 저장하고 송출 시작을 눌러 주세요.
+                  예배 시작 전에는 관리자 페이지에서 {category.label} 설정을 저장하고 송출 시작을 눌러 주세요.
                 </p>
               </div>
             )}

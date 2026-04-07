@@ -4,8 +4,8 @@ import { db } from '../../../firebase'
 import {
   DEFAULT_LIVE_STREAMS,
   LIVE_STREAM_CATEGORIES,
-  normalizeLiveStreams,
   extractYoutubeVideoId,
+  normalizeLiveStreams,
 } from '../../../utils/liveStream'
 
 function Field({ label, hint, children }) {
@@ -77,7 +77,7 @@ function StreamSection({ category, draftStream, savedStream, onChange, onSave, o
           <div>
             <p style={{ fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>{category.label} 설정</p>
             <p style={{ marginTop: '4px', fontSize: '0.82rem', color: '#64748b' }}>
-              주소와 안내 문구를 저장해두면 공개 페이지에 바로 반영됩니다.
+              주소, 비밀번호, 안내 문구를 저장하면 공개 페이지에 바로 반영됩니다.
             </p>
           </div>
           <button
@@ -98,9 +98,14 @@ function StreamSection({ category, draftStream, savedStream, onChange, onSave, o
           </Field>
         </div>
 
-        <Field label="오늘의 본문말씀 제목" hint="예: 요한복음 3장 16절">
-          <input value={draftStream.scriptureTitle} onChange={(event) => onChange(category.key, 'scriptureTitle', event.target.value)} placeholder="오늘의 본문말씀 제목" style={inputStyle} />
-        </Field>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <Field label="공개 비밀번호" hint="비우면 바로 입장 가능">
+            <input type="password" value={draftStream.accessPassword} onChange={(event) => onChange(category.key, 'accessPassword', event.target.value)} placeholder={`${category.label} 비밀번호`} style={inputStyle} />
+          </Field>
+          <Field label="오늘의 본문말씀 제목" hint="예: 요한복음 3장 16절">
+            <input value={draftStream.scriptureTitle} onChange={(event) => onChange(category.key, 'scriptureTitle', event.target.value)} placeholder="오늘의 본문말씀 제목" style={inputStyle} />
+          </Field>
+        </div>
 
         <Field label="오늘의 본문말씀 내용">
           <textarea value={draftStream.scriptureText} onChange={(event) => onChange(category.key, 'scriptureText', event.target.value)} rows={5} style={{ ...inputStyle, lineHeight: 1.7, resize: 'vertical', fontFamily: 'inherit' }} />
@@ -116,10 +121,8 @@ function StreamSection({ category, draftStream, savedStream, onChange, onSave, o
 
 export default function LiveStreamManager() {
   const [loading, setLoading] = useState(true)
-  const [savingPassword, setSavingPassword] = useState(false)
   const [savingStreamKey, setSavingStreamKey] = useState('')
   const [togglingStreamKey, setTogglingStreamKey] = useState('')
-  const [password, setPassword] = useState('')
   const [draftStreams, setDraftStreams] = useState(DEFAULT_LIVE_STREAMS)
   const [savedStreams, setSavedStreams] = useState(DEFAULT_LIVE_STREAMS)
 
@@ -130,8 +133,11 @@ export default function LiveStreamManager() {
         const snap = await getDoc(doc(db, 'settings', 'main'))
         if (snap.exists()) {
           const data = snap.data()
-          const streams = normalizeLiveStreams(data.liveStreams, data.liveStreamTest)
-          setPassword(String(data.liveAccessPassword || ''))
+          const streams = normalizeLiveStreams(
+            data.liveStreams,
+            data.liveStreamTest,
+            data.liveAccessPassword,
+          )
           setDraftStreams(streams)
           setSavedStreams(streams)
         }
@@ -154,22 +160,6 @@ export default function LiveStreamManager() {
     }))
   }
 
-  const savePassword = async () => {
-    setSavingPassword(true)
-    try {
-      await setDoc(doc(db, 'settings', 'main'), {
-        liveAccessPassword: password.trim(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-
-      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '라이브 비밀번호를 저장했습니다.' } }))
-      alert(password.trim() ? '라이브 비밀번호를 저장했습니다.' : '라이브 비밀번호를 해제했습니다.')
-    } catch (error) {
-      alert('오류: ' + error.message)
-    }
-    setSavingPassword(false)
-  }
-
   const saveStream = async (streamKey) => {
     const draftStream = draftStreams[streamKey]
     const videoId = extractYoutubeVideoId(draftStream.youtubeUrl)
@@ -187,6 +177,7 @@ export default function LiveStreamManager() {
           enabled: savedStreams[streamKey]?.enabled || false,
           title: draftStream.title.trim(),
           youtubeUrl: draftStream.youtubeUrl.trim(),
+          accessPassword: draftStream.accessPassword.trim(),
           scriptureTitle: draftStream.scriptureTitle.trim(),
           scriptureText: draftStream.scriptureText.trim(),
           notice: draftStream.notice.trim(),
@@ -252,33 +243,9 @@ export default function LiveStreamManager() {
       <div>
         <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#0f172a' }}>라이브영상 관리</h1>
         <p style={{ marginTop: '6px', fontSize: '0.85rem', color: '#64748b' }}>
-          공개 홈페이지의 라이브영상 비밀번호와 각 부서별 송출 주소를 이 화면에서 관리합니다.
+          각 부서의 유튜브 송출 주소와 비밀번호를 따로 관리합니다.
         </p>
       </div>
-
-      <section style={{ borderRadius: '20px', border: '1px solid #dbe4f0', background: '#f8fafc', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-          <div>
-            <p style={{ fontSize: '1rem', fontWeight: 900, color: '#0f172a' }}>공개 비밀번호</p>
-            <p style={{ marginTop: '4px', fontSize: '0.82rem', color: '#64748b', lineHeight: 1.7 }}>
-              이 비밀번호를 알아야 공개 홈페이지에서 라이브영상을 볼 수 있습니다. 비워두면 바로 입장 가능합니다.
-            </p>
-          </div>
-          <button onClick={savePassword} disabled={savingPassword} style={{ padding: '12px 16px', borderRadius: '10px', border: 'none', background: '#0f172a', color: '#fff', fontWeight: 800, cursor: savingPassword ? 'default' : 'pointer', opacity: savingPassword ? 0.45 : 1 }}>
-            {savingPassword ? '저장 중...' : '비밀번호 저장'}
-          </button>
-        </div>
-
-        <Field label="라이브 접속 비밀번호" hint="공개 홈페이지 공통 비밀번호">
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="비밀번호를 입력하세요."
-            style={{ width: '100%', maxWidth: '440px', padding: '11px 12px', border: '1px solid #d1d5db', borderRadius: '10px', fontSize: '0.9rem', boxSizing: 'border-box' }}
-          />
-        </Field>
-      </section>
 
       {LIVE_STREAM_CATEGORIES.map((category) => (
         <StreamSection

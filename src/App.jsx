@@ -127,7 +127,8 @@ function AppRoutes() {
                 <Route path="worship" element={<WorshipManager />} />
                 <Route path="facility" element={<FacilityManager />} />
                 <Route path="settings" element={<SettingsManager />} />
-                <Route path="settings/live-stream" element={<LiveStreamManager />} />
+                <Route path="live-streams" element={<LiveStreamManager />} />
+                <Route path="settings/live-stream" element={<Navigate to="/admin/live-streams" replace />} />
                 <Route path="visitor-logs" element={<VisitorLogsManager />} />
                 <Route path="activity-logs" element={<ActivityLogsManager />} />
               </Routes>

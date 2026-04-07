@@ -14,7 +14,6 @@ const DEFAULTS = {
   email: 'shinaechurch@naver.com',
   tagline: '말씀과 기도,\n사랑과 섬김으로\n세워지는 공동체',
   logoUrl: '',
-  liveAccessPassword: '',
   liveStreams: DEFAULT_LIVE_STREAMS,
 }
 
@@ -36,8 +35,11 @@ export function SettingsProvider({ children }) {
         setSettings({
           ...DEFAULTS,
           ...data,
-          liveAccessPassword: String(data.liveAccessPassword || '').trim(),
-          liveStreams: normalizeLiveStreams(data.liveStreams, data.liveStreamTest),
+          liveStreams: normalizeLiveStreams(
+            data.liveStreams,
+            data.liveStreamTest,
+            data.liveAccessPassword,
+          ),
         })
       },
       console.error,
