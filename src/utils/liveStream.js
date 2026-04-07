@@ -17,7 +17,6 @@ export const DEFAULT_LIVE_STREAM = {
   accessKey: '',
   sermonTitle: '',
   scriptureTitle: '',
-  scriptureText: '',
 }
 
 export const DEFAULT_LIVE_STREAMS = Object.fromEntries(
@@ -48,8 +47,9 @@ export function normalizeLiveStreams(input, legacyStream = null, legacyPassword 
     accumulator[category.key].accessPassword = String(accumulator[category.key].accessPassword || '').trim()
     accumulator[category.key].accessKey = String(accumulator[category.key].accessKey || '').trim()
     accumulator[category.key].sermonTitle = String(accumulator[category.key].sermonTitle || '').trim()
-    accumulator[category.key].scriptureTitle = String(accumulator[category.key].scriptureTitle || '').trim()
-    accumulator[category.key].scriptureText = String(accumulator[category.key].scriptureText || '').trim()
+    accumulator[category.key].scriptureTitle = String(
+      accumulator[category.key].scriptureTitle || accumulator[category.key].scriptureText || '',
+    ).trim()
 
     return accumulator
   }, {})

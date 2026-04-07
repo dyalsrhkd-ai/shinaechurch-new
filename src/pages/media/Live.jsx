@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -9,19 +9,6 @@ import {
 } from '../../utils/liveStream'
 
 const menus = LIVE_STREAM_CATEGORIES.map(({ label, path }) => ({ label, path }))
-
-function InfoCard({ label, children }) {
-  if (!children) return null
-
-  return (
-    <section style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '24px' }}>
-      <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '10px' }}>
-        {label}
-      </p>
-      <div style={{ fontSize: '0.97rem', lineHeight: 1.9, color: '#1f2937', whiteSpace: 'pre-line' }}>{children}</div>
-    </section>
-  )
-}
 
 function PasswordGate({ label, onUnlock }) {
   const [input, setInput] = useState('')
@@ -107,14 +94,6 @@ export default function Live() {
   const videoId = extractYoutubeVideoId(stream.youtubeUrl)
   const isLive = Boolean(stream.enabled && videoId)
 
-  const scriptureContent = useMemo(() => {
-    if (stream.scriptureTitle && stream.scriptureText) {
-      return `${stream.scriptureTitle}\n${stream.scriptureText}`
-    }
-
-    return stream.scriptureTitle || stream.scriptureText || ''
-  }, [stream.scriptureText, stream.scriptureTitle])
-
   const handleUnlock = (value) => {
     const success = String(value || '') === password
     if (!success) return false
@@ -167,10 +146,16 @@ export default function Live() {
             )}
           </section>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-            <InfoCard label="설교제목">{stream.sermonTitle}</InfoCard>
-            <InfoCard label="오늘의 본문말씀">{scriptureContent}</InfoCard>
-          </div>
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
+            <div style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '20px 22px' }}>
+              <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '8px' }}>설교제목</p>
+              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stream.sermonTitle || '-'}</p>
+            </div>
+            <div style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '20px 22px' }}>
+              <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '8px' }}>오늘의 본문말씀</p>
+              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stream.scriptureTitle || '-'}</p>
+            </div>
+          </section>
         </div>
       )}
     </SubLayout>
