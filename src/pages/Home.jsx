@@ -182,7 +182,14 @@ export default function Home() {
                   className="absolute inset-0"
                   style={{ background: 'linear-gradient(to right, rgba(5,15,35,0.72) 0%, rgba(5,15,35,0.45) 60%, rgba(5,15,35,0.2) 100%)' }}
                 />
-                <div className="absolute inset-0 flex flex-col justify-center" style={{ padding: '0 clamp(2rem, 8vw, 8rem)' }}>
+                <div
+                  className="absolute inset-0 flex flex-col justify-center"
+                  style={{
+                    paddingLeft: 'clamp(2rem, 8vw, 8rem)',
+                    paddingRight: 'clamp(2rem, 8vw, 8rem)',
+                    paddingTop: 'clamp(4rem, 8vw, 7rem)',
+                  }}
+                >
                   <h2
                     className="font-black text-white mb-5"
                     style={{
