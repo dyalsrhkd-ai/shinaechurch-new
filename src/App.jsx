@@ -13,7 +13,6 @@ import Schedule from './pages/intro/Schedule'
 import Worship from './pages/intro/Worship'
 import Location from './pages/intro/Location'
 import Facility from './pages/intro/Facility'
-import HaenamIntro from './pages/intro/Haenam'
 import Sunday from './pages/media/Sunday'
 import Special from './pages/media/Special'
 import Choir from './pages/media/Choir'
@@ -22,7 +21,6 @@ import Men from './pages/ministry/Men'
 import Women from './pages/ministry/Women'
 import Deaconess from './pages/ministry/Deaconess'
 import Dept from './pages/ministry/Dept'
-import HaenamMinistry from './pages/ministry/Haenam'
 import Children from './pages/school/Children'
 import Youth from './pages/school/Youth'
 import Young from './pages/school/Young'
@@ -151,7 +149,6 @@ function AppRoutes() {
         <Route path="/intro/worship" element={<Worship />} />
         <Route path="/intro/location" element={<Location />} />
         <Route path="/intro/facility" element={<Facility />} />
-        <Route path="/intro/haenam" element={<HaenamIntro />} />
         <Route path="/media/sunday" element={<Sunday />} />
         <Route path="/media/special" element={<Special />} />
         <Route path="/media/choir" element={<Choir />} />
@@ -161,7 +158,6 @@ function AppRoutes() {
         <Route path="/ministry/women" element={<Women />} />
         <Route path="/ministry/deaconess" element={<Deaconess />} />
         <Route path="/ministry/dept" element={<Dept />} />
-        <Route path="/ministry/haenam" element={<HaenamMinistry />} />
         <Route path="/school/children" element={<Children />} />
         <Route path="/school/youth" element={<Youth />} />
         <Route path="/school/young" element={<Young />} />

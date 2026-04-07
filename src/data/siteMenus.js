@@ -8,15 +8,13 @@ export const introMenus = [
   { label: '예배 안내', path: '/intro/worship' },
   { label: '오시는 길', path: '/intro/location' },
   { label: '교회 시설물 안내', path: '/intro/facility' },
-  { label: '해남성전 선교관', path: '/intro/haenam' },
 ]
 
 export const ministryMenus = [
   { label: '남전도회', path: '/ministry/men' },
   { label: '여전도회', path: '/ministry/women' },
   { label: '권사회', path: '/ministry/deaconess' },
-  { label: '부속회', path: '/ministry/dept' },
-  { label: '해남성전 선교관', path: '/ministry/haenam' },
+  { label: '부서별', path: '/ministry/dept' },
 ]
 
 export const liveMenus = LIVE_STREAM_CATEGORIES.map(({ label, path }) => ({ label, path }))

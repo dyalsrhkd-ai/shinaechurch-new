@@ -37,7 +37,7 @@ export const MENU_GROUPS = [
   {
     label: '기관 및 부서',
     items: [
-      { label: '기관 및 부서 관리', path: '/admin/content/ministry', icon: '🏷️', color: '#2563eb', desc: '남전도회, 여전도회, 권사회, 부속회 관리', keywords: ['기관', '부서', '남전도회', '여전도회', '권사회', '부속회'] },
+      { label: '기관 및 부서 관리', path: '/admin/content/ministry', icon: '🏷️', color: '#2563eb', desc: '남전도회, 여전도회, 권사회, 부서별 관리', keywords: ['기관', '부서', '남전도회', '여전도회', '권사회', '부서별'] },
     ],
   },
   {
