@@ -28,7 +28,10 @@ export const MENU_GROUPS = [
   {
     label: '라이브영상',
     items: [
-      { label: '라이브영상 관리', path: '/admin/live-streams', icon: 'LIVE', color: '#dc2626', desc: '부서별 송출 주소와 비밀번호를 관리', keywords: ['라이브', '실시간', '비밀번호', '송출', '유튜브'] },
+      { label: '아동부 라이브 영상 관리', path: '/admin/live-streams/children', icon: 'LIVE', color: '#dc2626', desc: '아동부 송출 주소와 비밀번호를 관리', keywords: ['라이브', '아동부', '실시간', '비밀번호', '송출'] },
+      { label: '중고등부 라이브 영상 관리', path: '/admin/live-streams/youth', icon: 'LIVE', color: '#dc2626', desc: '중고등부 송출 주소와 비밀번호를 관리', keywords: ['라이브', '중고등부', '실시간', '비밀번호', '송출'] },
+      { label: '청년부 라이브 영상 관리', path: '/admin/live-streams/young', icon: 'LIVE', color: '#dc2626', desc: '청년부 송출 주소와 비밀번호를 관리', keywords: ['라이브', '청년부', '실시간', '비밀번호', '송출'] },
+      { label: '대예배 라이브 영상 관리', path: '/admin/live-streams/main', icon: 'LIVE', color: '#dc2626', desc: '대예배 송출 주소와 비밀번호를 관리', keywords: ['라이브', '대예배', '실시간', '비밀번호', '송출'] },
     ],
   },
   {
