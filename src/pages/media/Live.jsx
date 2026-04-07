@@ -24,7 +24,7 @@ function PasswordGate({ label, onUnlock }) {
         비공개 입장
       </p>
       <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#0f172a', marginBottom: '12px' }}>
-        {label} 라이브 영상은 비밀번호를 입력해야 볼 수 있습니다.
+        {label} 실시간 설교영상을 보려면 비밀번호를 입력해야 합니다.
       </h2>
       <p style={{ fontSize: '0.92rem', lineHeight: 1.8, color: '#475569', marginBottom: '22px' }}>
         카카오톡이나 문자로 전달받은 전용 링크가 있으면 바로 입장할 수 있고, 일반 주소로 들어온 경우에는 비밀번호를 입력해야 합니다.
@@ -56,7 +56,7 @@ function PasswordGate({ label, onUnlock }) {
         />
         {error ? <p style={{ margin: 0, fontSize: '0.82rem', color: '#dc2626', fontWeight: 700 }}>{error}</p> : null}
         <button type="submit" style={{ padding: '14px 18px', borderRadius: '14px', border: 'none', background: '#0f172a', color: '#fff', fontSize: '0.92rem', fontWeight: 800, cursor: 'pointer' }}>
-          라이브 영상 보기
+          실시간 설교영상 보기
         </button>
       </form>
     </section>
@@ -148,7 +148,7 @@ export default function Live() {
   )
 
   return (
-    <SubLayout section="라이브영상" menus={menus} title={category.label}>
+    <SubLayout section="실시간 설교영상" menus={menus} title={category.label}>
       {!hasAccess ? (
         <PasswordGate label={category.label} onUnlock={handleUnlock} />
       ) : (
@@ -174,7 +174,7 @@ export default function Live() {
                     <p style={{ color: '#fff', fontSize: '1.25rem', fontWeight: 800 }}>{stream.title || category.defaultTitle}</p>
                   </div>
                   <p style={{ color: 'rgba(255,255,255,0.68)', fontSize: '0.84rem', lineHeight: 1.7, maxWidth: '460px' }}>
-                    방송 설정에 저장된 유튜브 라이브 영상을 이 페이지에서 바로 시청할 수 있습니다.
+                    방송 설정에 등록한 유튜브 영상을 이 페이지에서 바로 시청할 수 있습니다.
                   </p>
                 </div>
               </>
@@ -185,7 +185,7 @@ export default function Live() {
                 </div>
                 <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출 중인 영상이 없습니다.</p>
                 <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.92rem', lineHeight: 1.8, maxWidth: '520px', margin: '0 auto' }}>
-                  예배 시작 전에 관리자 페이지에서 {category.label} 영상을 저장하고 송출 시작을 눌러 주세요.
+                  예배 시작 전에 관리자 페이지에서 {category.label} 영상을 등록하고 송출 시작을 눌러 주세요.
                 </p>
               </div>
             )}

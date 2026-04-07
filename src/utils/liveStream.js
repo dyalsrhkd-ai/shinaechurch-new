@@ -1,8 +1,8 @@
 export const LIVE_STREAM_CATEGORIES = [
-  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 라이브 영상' },
-  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 라이브 영상' },
-  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 라이브 영상' },
-  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '대예배 실시간 예배 방송' },
+  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 실시간 설교영상' },
+  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 실시간 설교영상' },
+  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 실시간 설교영상' },
+  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '대예배 실시간 설교영상' },
 ]
 
 export const LIVE_STREAM_CATEGORY_MAP = Object.fromEntries(
@@ -11,7 +11,7 @@ export const LIVE_STREAM_CATEGORY_MAP = Object.fromEntries(
 
 export const DEFAULT_LIVE_STREAM = {
   enabled: false,
-  title: '실시간 예배 방송',
+  title: '실시간 설교영상',
   youtubeUrl: '',
   accessPassword: '',
   accessKey: '',

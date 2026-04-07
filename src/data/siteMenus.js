@@ -35,7 +35,7 @@ export const headerMenus = [
     ],
   },
   {
-    label: '라이브영상',
+    label: '실시간 설교영상',
     path: '/media/live',
     sub: liveMenus,
   },
@@ -89,7 +89,7 @@ export const footerColumns = [
       { label: '주일예배', to: '/media/sunday' },
       { label: '특별집회', to: '/media/special' },
       { label: '찬양대', to: '/media/choir' },
-      { label: '라이브영상', to: '/media/live/main' },
+      { label: '실시간 설교영상', to: '/media/live/main' },
     ],
   },
   {

@@ -23,6 +23,7 @@ const defaultSlides = [
 
 const quickCards = [
   { ko: '주일예배',    en: 'Sunday Service',  to: '/media/sunday' },
+  { ko: '실시간 설교영상', en: 'Live Sermon', to: '/media/live/main' },
   { ko: '교회소식',    en: 'Church News',     to: '/community/news' },
   { ko: '예배 안내',   en: 'Worship Guide',   to: '/intro/worship' },
   { ko: '주보보기',    en: 'Bulletin',        to: '/community/bulletin' },
@@ -238,7 +239,7 @@ export default function Home() {
               maxWidth: '1000px',
               margin: '0 auto',
               display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
+              gridTemplateColumns: `repeat(${quickCards.length}, 1fr)`,
               background: '#fff',
               borderRadius: '16px',
               boxShadow: '0 12px 60px rgba(0,0,0,0.18)',
@@ -256,7 +257,7 @@ export default function Home() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   padding: '28px 12px',
-                  borderRight: i < 5 ? '1px solid #f0f2f5' : 'none',
+                  borderRight: i < quickCards.length - 1 ? '1px solid #f0f2f5' : 'none',
                   transition: 'background 0.2s',
                   textDecoration: 'none',
                   gap: '6px',
