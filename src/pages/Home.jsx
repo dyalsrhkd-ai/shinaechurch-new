@@ -11,6 +11,7 @@ import 'swiper/css/pagination'
 import ImageWithFallback from '../components/ui/ImageWithFallback'
 import MapPlaceholderNotice from '../components/ui/MapPlaceholderNotice'
 import { SkeletonBlock } from '../components/ui/Skeleton'
+import { ministryContentPages, schoolContentPages } from '../data/pageContent'
 
 /* ────────── 데이터 ────────── */
 
@@ -73,11 +74,11 @@ function formatNoticeDate(ts) {
 }
 
 
-const depts = [
-  { label: '아동부',    sub: '어린이를 위한 신앙교육',   img: '/images/main1.jpg',           to: '/school/children' },
-  { label: '중·고등부', sub: '청소년 신앙 성장 공동체', img: '/images/main2.jpg',           to: '/school/youth' },
-  { label: '청년부',    sub: '청년들의 역동적인 신앙',   img: '/images/main3.jpg',           to: '/school/young' },
-  { label: '남전도회',  sub: '형제들이 함께하는 사역',   img: '/images/etc/corp6.jpg',       to: '/ministry/men' },
+const defaultDeptCards = [
+  { key: 'school-children', label: '아동부', sub: '어린이를 위한 신앙교육', img: schoolContentPages.find((item) => item.id === 'school-children')?.defaultHeroImage || '', to: '/school/children' },
+  { key: 'school-youth', label: '중고등부', sub: '청소년 신앙 성장 공동체', img: schoolContentPages.find((item) => item.id === 'school-youth')?.defaultHeroImage || '', to: '/school/youth' },
+  { key: 'school-young', label: '청년부', sub: '청년들의 역동적인 신앙', img: schoolContentPages.find((item) => item.id === 'school-young')?.defaultHeroImage || '', to: '/school/young' },
+  { key: 'ministry-men', label: '남전도회', sub: '형제들이 함께하는 사역', img: ministryContentPages.find((item) => item.id === 'ministry-men')?.defaultHeroImage || '', to: '/ministry/men' },
 ]
 
 /* ────────── 메인 ────────── */
@@ -91,6 +92,7 @@ export default function Home() {
   const [locationData, setLocationData] = useState(null)
   const [noticesLoading, setNoticesLoading] = useState(true)
   const [bulletinsLoading, setBulletinsLoading] = useState(true)
+  const [deptCards, setDeptCards] = useState(defaultDeptCards)
 
   useEffect(() => {
     const cached = sessionStorage.getItem('mainSlides')
@@ -137,6 +139,32 @@ export default function Home() {
       sessionStorage.setItem('mainBulletins', JSON.stringify(result))
       setBulletins(result)
     }).catch(() => {}).finally(() => setBulletinsLoading(false))
+
+    Promise.all(
+      defaultDeptCards.map((card) => {
+        const page = card.key.startsWith('ministry')
+          ? ministryContentPages.find((item) => item.id === card.key)
+          : schoolContentPages.find((item) => item.id === card.key)
+
+        return getDoc(doc(db, 'pageContents', card.key))
+          .then((snapshot) => ({
+            key: card.key,
+            heroImage: snapshot.exists() ? (snapshot.data().heroImage || page?.defaultHeroImage || card.img) : (page?.defaultHeroImage || card.img),
+          }))
+          .catch(() => ({
+            key: card.key,
+            heroImage: page?.defaultHeroImage || card.img,
+          }))
+      })
+    ).then((results) => {
+      const imageMap = Object.fromEntries(results.map((item) => [item.key, item.heroImage]))
+      setDeptCards(defaultDeptCards.map((card) => ({
+        ...card,
+        img: imageMap[card.key] || card.img,
+      })))
+    }).catch(() => {
+      setDeptCards(defaultDeptCards)
+    })
 
     getDoc(doc(db, 'location', 'main'))
       .then(snap => {
@@ -467,7 +495,7 @@ export default function Home() {
           </div>
 
           <div className="dept-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-            {depts.map((d, i) => (
+            {deptCards.map((d, i) => (
               <Link
                 key={d.to}
                 to={d.to}
