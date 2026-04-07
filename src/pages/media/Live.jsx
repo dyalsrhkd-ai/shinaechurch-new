@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -9,6 +9,7 @@ import {
 } from '../../utils/liveStream'
 
 const menus = LIVE_STREAM_CATEGORIES.map(({ label, path }) => ({ label, path }))
+const LINK_ACCESS_DURATION_MS = 2 * 60 * 60 * 1000
 
 function PasswordGate({ label, onUnlock }) {
   const [input, setInput] = useState('')
@@ -77,6 +78,36 @@ function getAccessParam(location) {
   return new URLSearchParams(fallbackHash).get('access')?.trim() || ''
 }
 
+function getStoredLinkAccess(streamKey, accessKey) {
+  if (typeof window === 'undefined' || !accessKey) return false
+
+  try {
+    const raw = window.sessionStorage.getItem(`live-link-access:${streamKey}`)
+    if (!raw) return false
+
+    const parsed = JSON.parse(raw)
+    const isValid = parsed?.accessKey === accessKey && Number(parsed?.expiresAt) > Date.now()
+    if (isValid) return true
+
+    window.sessionStorage.removeItem(`live-link-access:${streamKey}`)
+    return false
+  } catch {
+    return false
+  }
+}
+
+function setStoredLinkAccess(streamKey, accessKey) {
+  if (typeof window === 'undefined' || !accessKey) return
+
+  window.sessionStorage.setItem(
+    `live-link-access:${streamKey}`,
+    JSON.stringify({
+      accessKey,
+      expiresAt: Date.now() + LINK_ACCESS_DURATION_MS,
+    }),
+  )
+}
+
 export default function Live() {
   const { streamKey = 'main' } = useParams()
   const location = useLocation()
@@ -88,11 +119,17 @@ export default function Live() {
   const accessParam = getAccessParam(location)
 
   const hasLinkAccess = Boolean(accessKey && accessParam && accessParam === accessKey)
+  const storedLinkAccess = getStoredLinkAccess(category.key, accessKey)
   const [passwordPassed, setPasswordPassed] = useState(false)
-  const hasAccess = hasLinkAccess || !password || passwordPassed
+  const hasAccess = hasLinkAccess || storedLinkAccess || !password || passwordPassed
 
   const videoId = extractYoutubeVideoId(stream.youtubeUrl)
   const isLive = Boolean(stream.enabled && videoId)
+
+  useEffect(() => {
+    if (!hasLinkAccess) return
+    setStoredLinkAccess(category.key, accessKey)
+  }, [accessKey, category.key, hasLinkAccess])
 
   const handleUnlock = (value) => {
     const success = String(value || '') === password
@@ -101,6 +138,14 @@ export default function Live() {
     setPasswordPassed(true)
     return true
   }
+
+  const infoRows = useMemo(
+    () => [
+      { label: '설교제목', value: stream.sermonTitle || '-' },
+      { label: '오늘의 본문말씀', value: stream.scriptureTitle || '-' },
+    ],
+    [stream.scriptureTitle, stream.sermonTitle],
+  )
 
   return (
     <SubLayout section="라이브영상" menus={menus} title={category.label}>
@@ -147,14 +192,12 @@ export default function Live() {
           </section>
 
           <section style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
-            <div style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '20px 22px' }}>
-              <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '8px' }}>설교제목</p>
-              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stream.sermonTitle || '-'}</p>
-            </div>
-            <div style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '20px 22px' }}>
-              <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '8px' }}>오늘의 본문말씀</p>
-              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{stream.scriptureTitle || '-'}</p>
-            </div>
+            {infoRows.map((item) => (
+              <div key={item.label} style={{ borderRadius: '18px', border: '1px solid #e5e7eb', background: '#fff', padding: '20px 22px' }}>
+                <p style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563eb', letterSpacing: '0.08em', marginBottom: '8px' }}>{item.label}</p>
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</p>
+              </div>
+            ))}
           </section>
         </div>
       )}
