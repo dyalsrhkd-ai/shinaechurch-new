@@ -33,11 +33,11 @@ function PasswordGate({ label, onUnlock }) {
 
   return (
     <section style={{ maxWidth: '560px', margin: '0 auto', borderRadius: '24px', border: '1px solid #dbe4f0', background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)', padding: '32px' }}>
-      <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8', fontSize: '1.4rem', fontWeight: 900, marginBottom: '20px' }}>
-        LIVE
+      <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d4ed8', fontSize: '0.95rem', fontWeight: 900, marginBottom: '20px' }}>
+        방송
       </div>
       <p style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#2563eb', marginBottom: '12px' }}>
-        Private Access
+        비공개 입장
       </p>
       <h2 style={{ fontSize: '1.55rem', fontWeight: 900, color: '#0f172a', marginBottom: '12px' }}>
         {label} 라이브는 비밀번호를 입력해야 볼 수 있습니다.
@@ -145,8 +145,8 @@ export default function Live() {
               </>
             ) : (
               <div style={{ padding: '72px 24px', textAlign: 'center' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: '#fff', fontSize: '1.6rem', fontWeight: 800 }}>
-                  LIVE
+                <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', color: '#fff', fontSize: '0.95rem', fontWeight: 900 }}>
+                  방송
                 </div>
                 <p style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, marginBottom: '10px' }}>현재 송출중인 영상이 없습니다.</p>
                 <p style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.92rem', lineHeight: 1.8, maxWidth: '520px', margin: '0 auto' }}>
