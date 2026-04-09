@@ -1,8 +1,8 @@
 export const LIVE_STREAM_CATEGORIES = [
-  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 실시간 설교영상' },
-  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 실시간 설교영상' },
-  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 실시간 설교영상' },
-  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '대예배 실시간 설교영상' },
+  { key: 'children', label: '아동부', path: '/media/live/children', defaultTitle: '아동부 실시간 예배 영상' },
+  { key: 'youth', label: '중고등부', path: '/media/live/youth', defaultTitle: '중고등부 실시간 예배 영상' },
+  { key: 'young', label: '청년부', path: '/media/live/young', defaultTitle: '청년부 실시간 예배 영상' },
+  { key: 'main', label: '대예배', path: '/media/live/main', defaultTitle: '대예배 실시간 예배 영상' },
 ]
 
 export const LIVE_STREAM_CATEGORY_MAP = Object.fromEntries(
@@ -11,8 +11,10 @@ export const LIVE_STREAM_CATEGORY_MAP = Object.fromEntries(
 
 export const DEFAULT_LIVE_STREAM = {
   enabled: false,
-  title: '실시간 설교영상',
+  title: '실시간 예배 영상',
   youtubeUrl: '',
+  youtubeChromeProfileName: '',
+  currentVideoId: '',
   accessPassword: '',
   accessKey: '',
   sermonTitle: '',
@@ -44,6 +46,9 @@ export function normalizeLiveStreams(input, legacyStream = null, legacyPassword 
       ...(categoryInput && typeof categoryInput === 'object' ? categoryInput : {}),
     }
 
+    accumulator[category.key].youtubeUrl = String(accumulator[category.key].youtubeUrl || '').trim()
+    accumulator[category.key].youtubeChromeProfileName = String(accumulator[category.key].youtubeChromeProfileName || '').trim()
+    accumulator[category.key].currentVideoId = String(accumulator[category.key].currentVideoId || '').trim()
     accumulator[category.key].accessPassword = String(accumulator[category.key].accessPassword || '').trim()
     accumulator[category.key].accessKey = String(accumulator[category.key].accessKey || '').trim()
     accumulator[category.key].sermonTitle = String(accumulator[category.key].sermonTitle || '').trim()
@@ -55,9 +60,35 @@ export function normalizeLiveStreams(input, legacyStream = null, legacyPassword 
   }, {})
 }
 
+export function extractYoutubeChannelId(value) {
+  const input = String(value || '').trim()
+  if (!input) return ''
+
+  if (/^UC[a-zA-Z0-9_-]{22}$/.test(input)) {
+    return input
+  }
+
+  try {
+    const url = new URL(input)
+    const segments = url.pathname.split('/').filter(Boolean)
+    const channelIndex = segments.findIndex((segment) => segment === 'channel')
+
+    if (channelIndex >= 0 && /^UC[a-zA-Z0-9_-]{22}$/.test(segments[channelIndex + 1] || '')) {
+      return segments[channelIndex + 1]
+    }
+  } catch {
+    return ''
+  }
+
+  return ''
+}
+
 export function extractYoutubeVideoId(value) {
   const input = String(value || '').trim()
   if (!input) return ''
+
+  const channelId = extractYoutubeChannelId(input)
+  if (channelId) return channelId
 
   if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
     return input
@@ -86,6 +117,24 @@ export function extractYoutubeVideoId(value) {
   return ''
 }
 
+export function resolveYoutubeEmbedUrl(value) {
+  const channelId = extractYoutubeChannelId(value)
+  if (channelId) {
+    return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=1&rel=0`
+  }
+
+  const videoId = extractYoutubeVideoId(value)
+  if (videoId && videoId.length === 11) {
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`
+  }
+
+  return ''
+}
+
+export function hasLiveStreamTarget(value) {
+  return Boolean(extractYoutubeChannelId(value) || extractYoutubeVideoId(value))
+}
+
 export function generateLiveAccessKey() {
   const cryptoApi = globalThis.crypto
 
@@ -96,7 +145,7 @@ export function generateLiveAccessKey() {
   if (cryptoApi?.getRandomValues) {
     const buffer = new Uint32Array(4)
     cryptoApi.getRandomValues(buffer)
-    return Array.from(buffer, (value) => value.toString(36)).join('').slice(0, 20)
+    return Array.from(buffer, (item) => item.toString(36)).join('').slice(0, 20)
   }
 
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`.slice(0, 20)
