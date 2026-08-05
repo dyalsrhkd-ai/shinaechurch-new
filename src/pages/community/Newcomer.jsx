@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
+import { listContentDocuments } from '../../api/contentApi'
 import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
-import { db } from '../../firebase'
 import ImageWithFallback from '../../components/ui/ImageWithFallback'
 import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
 
@@ -26,9 +25,8 @@ export default function Newcomer() {
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    const q = query(collection(db, 'newcomers'), orderBy('date', 'desc'))
-    getDocs(q)
-      .then(snap => setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    listContentDocuments('newcomers', { sort: 'date', direction: 'desc' })
+      .then(setEntries)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -86,7 +84,7 @@ export default function Newcomer() {
                     </span>
                   </span>
                   <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                    {e.date?.toDate ? e.date.toDate().toISOString().slice(0, 10) : ''}
+                    {e.date ? new Date(e.date).toISOString().slice(0, 10) : ''}
                   </span>
                 </div>
                 {open === globalIdx(i) && (

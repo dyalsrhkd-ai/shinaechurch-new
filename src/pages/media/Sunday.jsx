@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { listContentDocuments } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
 
 const menus = [
@@ -78,8 +77,8 @@ export default function Sunday() {
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    getDocs(query(collection(db, 'sundaySermons'), orderBy('order', 'desc')))
-      .then(snap => setSermons(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    listContentDocuments('sundaySermons', { sort: 'order', direction: 'desc' })
+      .then(setSermons)
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getContentDocument } from '../api/contentApi'
 import { createDefaultPageState, normalizePageState } from '../data/pageContent'
 
 export function usePageContent(page) {
@@ -40,9 +39,9 @@ export function usePageContent(page) {
     async function fetchContent() {
       setLoading(true)
       try {
-        const snapshot = await getDoc(doc(db, 'pageContents', page.id))
+        const document = await getContentDocument('pageContents', page.id)
         if (!active) return
-        const nextContent = normalizePageState(page, snapshot.exists() ? snapshot.data() : null)
+        const nextContent = normalizePageState(page, document)
         setContent(nextContent)
         try {
           sessionStorage.setItem(`page-content:${page.id}`, JSON.stringify(nextContent))

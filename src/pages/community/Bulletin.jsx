@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { listContentDocuments } from '../../api/contentApi'
 import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
 import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
+import { normalizePublicFileUrl } from '../../utils/publicFileUrl'
 
 const menus = [
   { label: '교회소식',   path: '/community/news' },
@@ -24,9 +24,8 @@ export default function Bulletin() {
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    const q = query(collection(db, 'bulletins'), orderBy('date', 'desc'))
-    getDocs(q)
-      .then(snap => setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    listContentDocuments('bulletins', { sort: 'date', direction: 'desc' })
+      .then(setEntries)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -70,7 +69,7 @@ export default function Bulletin() {
             {slice.map((e, i) => (
               <a
                 key={e.id}
-                href={e.fileUrl}
+                href={normalizePublicFileUrl(e.fileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -89,7 +88,7 @@ export default function Bulletin() {
                   {e.fileType?.toUpperCase() || 'HWP'}
                 </span>
                 <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                  {e.date?.toDate ? e.date.toDate().toISOString().slice(0, 10) : ''}
+                  {e.date ? new Date(e.date).toISOString().slice(0, 10) : ''}
                 </span>
               </a>
             ))}

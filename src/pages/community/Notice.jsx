@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { listContentDocuments } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
 import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
+import { normalizePublicFileUrl } from '../../utils/publicFileUrl'
 
 const menus = [
   { label: '교회소식',   path: '/community/news' },
@@ -28,9 +28,8 @@ export default function Notice() {
   const [open, setOpen] = useState(null)
 
   useEffect(() => {
-    const q = query(collection(db, 'notices'), orderBy('date', 'desc'))
-    getDocs(q)
-      .then(snap => setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    listContentDocuments('notices', { sort: 'date', direction: 'desc' })
+      .then(setEntries)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -101,7 +100,7 @@ export default function Notice() {
                   )}
                   {e.fileUrl && (
                     <a
-                      href={e.fileUrl}
+                      href={normalizePublicFileUrl(e.fileUrl)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '16px', padding: '8px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '0.825rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}

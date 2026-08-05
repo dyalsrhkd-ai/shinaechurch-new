@@ -1,26 +1,18 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { listContentDocuments } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
+import { introMenus } from '../../data/siteMenus'
 
-const menus = [
-  { label: '인사말',          path: '/intro/greeting' },
-  { label: '교회 연혁',       path: '/intro/history' },
-  { label: '섬기는 사람들',   path: '/intro/staff' },
-  { label: '교회 연간 일정',  path: '/intro/schedule' },
-  { label: '예배 안내',       path: '/intro/worship' },
-  { label: '오시는길',        path: '/intro/location' },
-  { label: '교회시설물 안내', path: '/intro/facility' },
-]
+const menus = introMenus
 
 export default function History() {
   const [eras, setEras] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDocs(collection(db, 'history'))
-      .then(snap => {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    listContentDocuments('history')
+      .then(documents => {
+        const list = [...documents]
         list.sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
         setEras(list)
       })

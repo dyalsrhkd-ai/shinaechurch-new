@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { doc, onSnapshot } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getContentDocument } from '../api/contentApi'
 import baeksukFavicon from '../assets/baeksuk-favicon.png'
 import { DEFAULT_LIVE_STREAMS, normalizeLiveStreams } from '../utils/liveStream'
 
@@ -23,15 +22,10 @@ export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(DEFAULTS)
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, 'settings', 'main'),
-      (snap) => {
-        if (!snap.exists()) {
-          setSettings(DEFAULTS)
-          return
-        }
-
-        const data = snap.data()
+    let active = true
+    getContentDocument('settings', 'main')
+      .then((data) => {
+        if (!active || !data) return
         setSettings({
           ...DEFAULTS,
           ...data,
@@ -41,11 +35,9 @@ export function SettingsProvider({ children }) {
             data.liveAccessPassword,
           ),
         })
-      },
-      console.error,
-    )
-
-    return unsubscribe
+      })
+      .catch(console.error)
+    return () => { active = false }
   }, [])
 
   useEffect(() => {

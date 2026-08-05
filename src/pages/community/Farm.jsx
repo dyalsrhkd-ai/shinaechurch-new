@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, orderBy, query, doc, getDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { getContentDocument, listContentDocuments } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
 
 const menus = [
@@ -16,17 +15,19 @@ const menus = [
 
 const PER_PAGE = 12
 
-const DEFAULTS = {
+  const DEFAULTS = {
   introTitle: '영선관리 소개',
   intro1: '신애교회 연합남전도회에서 관리하는 교회 농장입니다. 농장에서는 채소, 마늘, 고구마, 상추 등 다양한 작물을 재배하여 수확한 후 교인들과 이웃에게 나누어 드리고 있습니다.',
   intro2: '또한 연못에는 미꾸라지, 붕어, 잉어, 뱀장어 등을 방류하여 교인들과 인근 마을 주민들의 휴식처로 활용하고 있습니다.',
   manager: '김강석 장로',
   managerRole: '연합남전도회 관리',
+  heroImageUrl: '',
 }
 
 export default function Farm() {
   const [photos, setPhotos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [infoLoading, setInfoLoading] = useState(true)
   const [lightbox, setLightbox] = useState(null)
   const [page, setPage] = useState(1)
   const [info, setInfo] = useState(DEFAULTS)
@@ -34,17 +35,16 @@ export default function Farm() {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
-        const q = query(collection(db, 'farm'), orderBy('order', 'desc'))
-        const snap = await getDocs(q)
-        setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setPhotos(await listContentDocuments('farm', { sort: 'order', direction: 'desc' }))
       } catch (e) { console.error(e) }
       setLoading(false)
     }
     const fetchInfo = async () => {
       try {
-        const snap = await getDoc(doc(db, 'farm_info', 'main'))
-        if (snap.exists()) setInfo({ ...DEFAULTS, ...snap.data() })
+        const document = await getContentDocument('farm_info', 'main')
+        if (document) setInfo({ ...DEFAULTS, ...document })
       } catch (e) { console.error(e) }
+      setInfoLoading(false)
     }
     fetchPhotos()
     fetchInfo()
@@ -57,14 +57,24 @@ export default function Farm() {
     <SubLayout section="교제와 나눔" menus={menus} title="영선관리">
       {/* 배너 */}
       <div style={{ borderRadius: '14px', overflow: 'hidden', marginBottom: '28px', border: '1px solid #eaecf0' }}>
-        <img src="/images/user/user_p7_1.jpg" alt="영선관리" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+        {info.heroImageUrl ? (
+          <img src={info.heroImageUrl} alt="영선관리" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '300px', background: 'linear-gradient(135deg, #14532d, #166534)' }} />
+        )}
       </div>
 
       {/* 소개 */}
       <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius: '14px', padding: '28px', marginBottom: '32px', borderLeft: '4px solid #16a34a' }}>
-        <h3 style={{ fontWeight: 800, fontSize: '1rem', color: '#14532d', marginBottom: '14px' }}>{info.introTitle || '영선관리 소개'}</h3>
-        {info.intro1 && <p style={{ fontSize: '0.9rem', color: '#374151', lineHeight: 2, marginBottom: '12px' }}>{info.intro1}</p>}
-        {info.intro2 && <p style={{ fontSize: '0.9rem', color: '#374151', lineHeight: 2 }}>{info.intro2}</p>}
+        {infoLoading ? (
+          <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>불러오는 중...</div>
+        ) : (
+          <>
+            <h3 style={{ fontWeight: 800, fontSize: '1rem', color: '#14532d', marginBottom: '14px' }}>{info.introTitle || '영선관리 소개'}</h3>
+            {info.intro1 && <p style={{ fontSize: '0.9rem', color: '#374151', lineHeight: 2, marginBottom: '12px' }}>{info.intro1}</p>}
+            {info.intro2 && <p style={{ fontSize: '0.9rem', color: '#374151', lineHeight: 2 }}>{info.intro2}</p>}
+          </>
+        )}
       </div>
 
       {/* 담당 */}
@@ -74,8 +84,14 @@ export default function Farm() {
           담당
         </h3>
         <div style={{ background: '#f6f8fb', borderRadius: '10px', padding: '14px 20px', border: '1px solid #eaecf0', display: 'inline-block' }}>
-          <p style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f2040' }}>{info.manager}</p>
-          <p style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '2px' }}>{info.managerRole}</p>
+          {infoLoading ? (
+            <p style={{ fontSize: '0.82rem', color: '#9ca3af' }}>불러오는 중...</p>
+          ) : (
+            <>
+              <p style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f2040' }}>{info.manager}</p>
+              <p style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: '2px' }}>{info.managerRole}</p>
+            </>
+          )}
         </div>
       </div>
 

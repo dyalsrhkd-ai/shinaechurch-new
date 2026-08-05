@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, orderBy, query } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { listContentDocuments } from '../../api/contentApi'
 import Pagination from '../../components/Pagination'
 import SubLayout from '../../components/SubLayout'
 import ImageWithFallback from '../../components/ui/ImageWithFallback'
@@ -26,9 +25,8 @@ export default function News() {
   const [page, setPage] = useState(1)
 
   useEffect(() => {
-    const q = query(collection(db, 'news'), orderBy('date', 'desc'))
-    getDocs(q)
-      .then(snap => setEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
+    listContentDocuments('news', { sort: 'date', direction: 'desc' })
+      .then(setEntries)
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -86,7 +84,7 @@ export default function News() {
                     </span>
                   </span>
                   <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
-                    {e.date?.toDate ? e.date.toDate().toISOString().slice(0, 10) : ''}
+                    {e.date ? new Date(e.date).toISOString().slice(0, 10) : ''}
                   </span>
                 </div>
                 {open === globalIdx(i) && (

@@ -1,20 +1,12 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { getContentDocument } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import MapPlaceholderNotice from '../../components/ui/MapPlaceholderNotice'
 import { SkeletonBlock, SkeletonCard } from '../../components/ui/Skeleton'
+import { introMenus } from '../../data/siteMenus'
 
-const menus = [
-  { label: '인사말',         path: '/intro/greeting' },
-  { label: '교회 연혁',      path: '/intro/history' },
-  { label: '섬기는 사람들',  path: '/intro/staff' },
-  { label: '교회 연간 일정', path: '/intro/schedule' },
-  { label: '예배 안내',      path: '/intro/worship' },
-  { label: '오시는길',       path: '/intro/location' },
-  { label: '교회시설물 안내', path: '/intro/facility' },
-]
+const menus = introMenus
 
 export default function Location() {
   const { address, phone } = useSettings()
@@ -22,8 +14,8 @@ export default function Location() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDoc(doc(db, 'location', 'main'))
-      .then(snap => { if (snap.exists()) setData(snap.data()) })
+    getContentDocument('location', 'main')
+      .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])

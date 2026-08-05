@@ -1,27 +1,17 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { getContentDocument } from '../../api/contentApi'
 import SubLayout from '../../components/SubLayout'
+import { introMenus } from '../../data/siteMenus'
 
-const menus = [
-  { label: '인사말',        path: '/intro/greeting' },
-  { label: '교회 연혁',     path: '/intro/history' },
-  { label: '섬기는 사람들', path: '/intro/staff' },
-  { label: '교회 연간 일정', path: '/intro/schedule' },
-  { label: '예배 안내',     path: '/intro/worship' },
-  { label: '오시는길',      path: '/intro/location' },
-  { label: '교회시설물 안내', path: '/intro/facility' },
-]
-
-const FALLBACK_PHOTO = '/images/corp_new/mem8.jpg'
+const menus = introMenus
 
 export default function Greeting() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getDoc(doc(db, 'greeting', 'main'))
-      .then(snap => { if (snap.exists()) setData(snap.data()) })
+    getContentDocument('greeting', 'main')
+      .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [])
@@ -32,9 +22,10 @@ export default function Greeting() {
     </SubLayout>
   )
 
-  const photoUrl = data?.photoUrl || FALLBACK_PHOTO
+  const photoUrl = data?.photoUrl || ''
   const name = data?.name || '우용녀'
-  const nameTitle = data?.nameTitle || '목사'
+  const nameTitle = data?.nameTitle || ''
+  const displayName = nameTitle?.trim() ? `${name} ${nameTitle}` : name
   const role = data?.role || '신애교회 담임목사'
   const greetingTitle = data?.greetingTitle || '신애교회에 오신 것을\n주님의 이름으로 환영합니다.'
   const paragraphs = data?.paragraphs || []
@@ -49,15 +40,19 @@ export default function Greeting() {
         {/* 사진 */}
         <div style={{ flexShrink: 0 }}>
           <div style={{ width: '200px', borderRadius: '16px', overflow: 'hidden', border: '1px solid #eaecf0', background: '#f6f8fb' }}>
-            <img
-              src={photoUrl}
-              alt={`${name} ${nameTitle}`}
-              style={{ width: '100%', objectFit: 'cover', display: 'block' }}
-              onError={e => { e.target.src = FALLBACK_PHOTO }}
-            />
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={displayName}
+                style={{ width: '100%', objectFit: 'cover', display: 'block' }}
+                onError={e => { e.currentTarget.style.display = 'none' }}
+              />
+            ) : (
+              <div style={{ width: '100%', aspectRatio: '10/12', background: 'linear-gradient(135deg, #dbeafe, #eff6ff)' }} />
+            )}
           </div>
           <div style={{ textAlign: 'center', marginTop: '14px' }}>
-            <p style={{ fontWeight: 800, fontSize: '1rem', color: '#0f2040' }}>{name} {nameTitle}</p>
+            <p style={{ fontWeight: 800, fontSize: '1rem', color: '#0f2040' }}>{displayName}</p>
             <p style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>{role}</p>
           </div>
         </div>

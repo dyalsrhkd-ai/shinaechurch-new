@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, doc, getDoc, getDocs, orderBy, query, limit } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getContentDocument, listContentDocuments } from '../api/contentApi'
 import { useSettings } from '../contexts/SettingsContext'
 import { Link } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
@@ -12,6 +11,7 @@ import ImageWithFallback from '../components/ui/ImageWithFallback'
 import MapPlaceholderNotice from '../components/ui/MapPlaceholderNotice'
 import { SkeletonBlock } from '../components/ui/Skeleton'
 import { ministryContentPages, schoolContentPages } from '../data/pageContent'
+import { normalizePublicFileUrl } from '../utils/publicFileUrl'
 
 /* ────────── 데이터 ────────── */
 
@@ -99,9 +99,8 @@ export default function Home() {
     if (cached) {
       try { setSlides(JSON.parse(cached)) } catch {}
     }
-    const q = query(collection(db, 'slides'), orderBy('order'))
-    getDocs(q).then(snap => {
-      const active = snap.docs.map(d => d.data()).filter(d => d.active !== false)
+    listContentDocuments('slides', { sort: 'order', direction: 'asc' }).then(documents => {
+      const active = documents.filter(document => document.active !== false)
       const result = active.length > 0
         ? active.map(d => ({ img: d.imgUrl, title: d.title, sub: d.sub }))
         : defaultSlides
@@ -116,11 +115,9 @@ export default function Home() {
     if (cachedNotices) {
       try { setNotices(JSON.parse(cachedNotices)) } catch {}
     }
-    const nq = query(collection(db, 'notices'), orderBy('date', 'desc'), limit(6))
-    getDocs(nq).then(snap => {
-      const result = snap.docs.map(d => {
-        const data = d.data()
-        return { id: d.id, title: data.title, badge: data.badge, date: formatNoticeDate(data.date), content: data.content || '', fileUrl: data.fileUrl || null, fileName: data.fileName || null }
+    listContentDocuments('notices', { sort: 'date', direction: 'desc', limit: 6 }).then(documents => {
+      const result = documents.map(data => {
+        return { id: data.id, title: data.title, badge: data.badge, date: formatNoticeDate(data.date), content: data.content || '', fileUrl: data.fileUrl || null, fileName: data.fileName || null }
       })
       sessionStorage.setItem('mainNotices', JSON.stringify(result))
       setNotices(result)
@@ -131,10 +128,9 @@ export default function Home() {
     if (cachedBulletins) {
       try { setBulletins(JSON.parse(cachedBulletins)) } catch {}
     }
-    getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc'), limit(5))).then(snap => {
-      const result = snap.docs.map(d => {
-        const data = d.data()
-        return { id: d.id, title: data.title, fileUrl: data.fileUrl, fileType: data.fileType || 'hwp' }
+    listContentDocuments('bulletins', { sort: 'date', direction: 'desc', limit: 5 }).then(documents => {
+      const result = documents.map(data => {
+        return { id: data.id, title: data.title, fileUrl: data.fileUrl, fileType: data.fileType || 'hwp' }
       })
       sessionStorage.setItem('mainBulletins', JSON.stringify(result))
       setBulletins(result)
@@ -146,10 +142,10 @@ export default function Home() {
           ? ministryContentPages.find((item) => item.id === card.key)
           : schoolContentPages.find((item) => item.id === card.key)
 
-        return getDoc(doc(db, 'pageContents', card.key))
-          .then((snapshot) => ({
+        return getContentDocument('pageContents', card.key)
+          .then((document) => ({
             key: card.key,
-            heroImage: snapshot.exists() ? (snapshot.data().heroImage || page?.defaultHeroImage || card.img) : (page?.defaultHeroImage || card.img),
+            heroImage: document?.heroImage || page?.defaultHeroImage || card.img,
           }))
           .catch(() => ({
             key: card.key,
@@ -166,9 +162,9 @@ export default function Home() {
       setDeptCards(defaultDeptCards)
     })
 
-    getDoc(doc(db, 'location', 'main'))
-      .then(snap => {
-        if (snap.exists()) setLocationData(snap.data())
+    getContentDocument('location', 'main')
+      .then(document => {
+        if (document) setLocationData(document)
       })
       .catch(console.error)
   }, [])
@@ -422,7 +418,7 @@ export default function Home() {
                       }
                       {n.fileUrl && (
                         <a
-                          href={n.fileUrl}
+                          href={normalizePublicFileUrl(n.fileUrl)}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', padding: '7px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none' }}
@@ -458,7 +454,7 @@ export default function Home() {
               )) : bulletins.map((b, i) => (
                 <li key={b.id || i} style={{ borderBottom: '1px solid #f0f2f5' }}>
                   <a
-                    href={b.fileUrl}
+                    href={normalizePublicFileUrl(b.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 0', textDecoration: 'none', transition: 'opacity 0.15s' }}
@@ -495,7 +491,7 @@ export default function Home() {
           </div>
 
           <div className="dept-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-            {deptCards.map((d, i) => (
+            {deptCards.map((d) => (
               <Link
                 key={d.to}
                 to={d.to}
