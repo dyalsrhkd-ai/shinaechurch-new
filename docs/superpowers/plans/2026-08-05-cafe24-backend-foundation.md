@@ -1,6 +1,6 @@
 # Cafe24 Backend Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the MySQL schema and PHP foundation that later content, media, live-agent, and administrator screens will use without activating it in the production React application yet.
 
@@ -32,7 +32,7 @@
 - Consumes: official PHP for Windows x64 NTS ZIP
 - Produces: fixed local test executable `C:\tmp\php\php.exe`
 
-- [ ] **Step 1: Download and extract the official runtime**
+- [x] **Step 1: Download and extract the official runtime**
 
 ```powershell
 New-Item -ItemType Directory -Force -Path 'C:\tmp\php' | Out-Null
@@ -40,7 +40,7 @@ curl.exe -L 'https://windows.php.net/downloads/releases/latest/php-8.4-nts-Win32
 Expand-Archive -LiteralPath 'C:\tmp\php.zip' -DestinationPath 'C:\tmp\php' -Force
 ```
 
-- [ ] **Step 2: Verify the runtime**
+- [x] **Step 2: Verify the runtime**
 
 Run: `C:\tmp\php\php.exe -v`
 
@@ -58,7 +58,7 @@ Expected: PHP 8.4 CLI. Production source must still remain PHP 7.4-compatible un
 - Consumes: none
 - Produces: tables `admin_users`, `admin_sessions`, `admin_audit_logs`, `content_documents`, `visitor_daily_stats`, `visitor_logs`, `admin_route_locks`, `live_stream_settings`, `live_stream_commands`, `live_stream_agents`
 
-- [ ] **Step 1: Write the schema verification script**
+- [x] **Step 1: Write the schema verification script**
 
 Create `scripts/check-cafe24-schema.mjs` using Node built-ins. Read `database/cafe24-schema.sql` and assert that every required table name exists, `admin_users.login_id` is unique, secrets use hash columns, and no sample password value appears.
 
@@ -77,27 +77,27 @@ assert.doesNotMatch(sql, /123456789|admin@shinaechurch/i)
 console.log('Cafe24 schema contract OK')
 ```
 
-- [ ] **Step 2: Run the check and verify failure**
+- [x] **Step 2: Run the check and verify failure**
 
 Run: `node scripts/check-cafe24-schema.mjs`
 
 Expected: FAIL because `database/cafe24-schema.sql` does not exist.
 
-- [ ] **Step 3: Create the MySQL schema**
+- [x] **Step 3: Create the MySQL schema**
 
 Create all ten tables with `utf8mb4`, InnoDB, explicit PK/unique/index definitions, timestamps, and foreign keys where Cafe24 permits them. Use `LONGTEXT` for JSON payloads and `CHAR(64)` for SHA-256 token/session hashes. Do not add roles.
 
-- [ ] **Step 4: Document import and backup commands without secrets**
+- [x] **Step 4: Document import and backup commands without secrets**
 
 `database/README.md` must document phpMyAdmin import, pre-cutover SQL export, table creation order, and that production configuration belongs outside the web root.
 
-- [ ] **Step 5: Run the schema check**
+- [x] **Step 5: Run the schema check**
 
 Run: `node scripts/check-cafe24-schema.mjs`
 
 Expected: `Cafe24 schema contract OK`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add database/cafe24-schema.sql database/README.md scripts/check-cafe24-schema.mjs
@@ -116,7 +116,7 @@ git commit -m "feat: add cafe24 database schema"
 - Consumes: production private config path from `SHINAE_PRIVATE_CONFIG` or the fixed parent-of-web-root fallback
 - Produces: `db(): PDO`, `json_input(): array`, `json_response(array $body, int $status = 200): void`, `require_method(string $method): void`, `require_admin(): array`, `require_csrf(): void`, `audit_admin_action(...)`
 
-- [ ] **Step 1: Write failing helper tests**
+- [x] **Step 1: Write failing helper tests**
 
 The PHP test must include `_security.php` and assert login-ID validation, password length validation, token hashing, and generic error messages without opening a DB connection.
 
@@ -131,17 +131,17 @@ assert(strlen(hash_secret('token')) === 64);
 echo "PHP security helpers OK\n";
 ```
 
-- [ ] **Step 2: Run the test and verify failure**
+- [x] **Step 2: Run the test and verify failure**
 
 Run: `C:\tmp\php\php.exe -d assert.exception=1 tests/php/bootstrap_test.php`
 
 Expected: FAIL because `_security.php` does not exist.
 
-- [ ] **Step 3: Implement minimal helpers**
+- [x] **Step 3: Implement minimal helpers**
 
 Use `declare(strict_types=1)`, JSON-only responses, safe session cookie settings, PDO exceptions, a generic production error handler, 32-byte CSRF tokens, and constant-time secret comparison. `config/cafe24.example.php` contains placeholder keys only.
 
-- [ ] **Step 4: Verify PHP syntax and helper tests**
+- [x] **Step 4: Verify PHP syntax and helper tests**
 
 Run:
 
@@ -153,7 +153,7 @@ C:\tmp\php\php.exe -d assert.exception=1 tests/php/bootstrap_test.php
 
 Expected: both lint checks pass and the test prints `PHP security helpers OK`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add public/api/_bootstrap.php public/api/_security.php config/cafe24.example.php tests/php/bootstrap_test.php
@@ -172,21 +172,21 @@ git commit -m "feat: add cafe24 php bootstrap"
 - Produces JSON actions: `login`, `logout`, `me`, `change-password`
 - Session user shape: `{ id: int, uid: string, loginId: string, displayName: string, mustChangePassword: bool }`
 
-- [ ] **Step 1: Write failing authentication-service tests**
+- [x] **Step 1: Write failing authentication-service tests**
 
 Test password verification, five-failure lockout, session rotation, inactive account rejection, generic invalid-credential response, and mandatory password-change response using an in-memory fake repository passed to pure service functions.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 Run: `C:\tmp\php\php.exe -d assert.exception=1 tests/php/auth_service_test.php`
 
 Expected: FAIL because authentication service functions are absent.
 
-- [ ] **Step 3: Implement login and session actions**
+- [x] **Step 3: Implement login and session actions**
 
 Put the pure authentication rules in `_auth_service.php`. `POST action=login` accepts `loginId` and `password`; `POST action=logout` clears DB and PHP sessions; `GET action=me` returns the normalized user and CSRF token; `POST action=change-password` verifies the current password unless `must_change_password=1`, writes a new hash, clears the flag, and invalidates other sessions.
 
-- [ ] **Step 4: Run syntax and service tests**
+- [x] **Step 4: Run syntax and service tests**
 
 Run:
 
@@ -198,7 +198,7 @@ C:\tmp\php\php.exe -d assert.exception=1 tests/php/auth_service_test.php
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add public/api/_auth_service.php public/api/auth.php tests/php/auth_service_test.php
@@ -217,21 +217,21 @@ git commit -m "feat: add cafe24 administrator authentication api"
 - Produces JSON actions: `list`, `create`, `update`, `delete`, `reset-password`
 - Administrator list item: `{ id, loginId, displayName, active, mustChangePassword, lastLoginAt, createdAt, updatedAt }`
 
-- [ ] **Step 1: Write failing account-management tests**
+- [x] **Step 1: Write failing account-management tests**
 
 Cover duplicate login ID, create with temporary password, ID/name update, reset with `must_change_password=1`, soft delete, current-user deletion rejection, and last-active-admin rejection.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 Run: `C:\tmp\php\php.exe -d assert.exception=1 tests/php/admin_users_service_test.php`
 
 Expected: FAIL because the service does not exist.
 
-- [ ] **Step 3: Implement account-management actions**
+- [x] **Step 3: Implement account-management actions**
 
 Put the pure account rules in `_admin_users_service.php`. Every endpoint action calls `require_admin()`; mutations call `require_csrf()` and write `admin_audit_logs` without password values. Delete sets `active_yn='N'` and `deleted_at=NOW()`.
 
-- [ ] **Step 4: Run syntax and service tests**
+- [x] **Step 4: Run syntax and service tests**
 
 Run:
 
@@ -243,7 +243,7 @@ C:\tmp\php\php.exe -d assert.exception=1 tests/php/admin_users_service_test.php
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add public/api/_admin_users_service.php public/api/admin-users.php tests/php/admin_users_service_test.php
@@ -262,21 +262,21 @@ git commit -m "feat: add cafe24 administrator account api"
 - Consumes: same-origin PHP JSON endpoints
 - Produces: `apiRequest(path, options)`, `login`, `logout`, `getCurrentAdmin`, `changePassword`, `listAdminUsers`, `createAdminUser`, `updateAdminUser`, `deleteAdminUser`, `resetAdminPassword`
 
-- [ ] **Step 1: Write failing Node contract tests**
+- [x] **Step 1: Write failing Node contract tests**
 
 Start a local Node HTTP server, return JSON fixtures, assert `credentials: 'same-origin'`, CSRF header forwarding, normalized success body, and readable error propagation. The test imports the three client modules directly.
 
-- [ ] **Step 2: Run and verify failure**
+- [x] **Step 2: Run and verify failure**
 
 Run: `node scripts/cafe24-api-client.test.mjs`
 
 Expected: FAIL because the clients do not exist.
 
-- [ ] **Step 3: Implement minimal clients**
+- [x] **Step 3: Implement minimal clients**
 
 Use native `fetch`; add no dependency. Store the CSRF value only in module memory after `me` or `login`. Do not switch `AuthContext` or `Login.jsx` in this task.
 
-- [ ] **Step 4: Run tests, lint, and build**
+- [x] **Step 4: Run tests, lint, and build**
 
 Run:
 
@@ -288,7 +288,7 @@ npm run build
 
 Expected: tests and build pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/api/httpClient.js src/api/authApi.js src/api/adminUsersApi.js scripts/cafe24-api-client.test.mjs
@@ -306,7 +306,7 @@ git commit -m "feat: add cafe24 frontend api clients"
 - Consumes: Tasks 1-5
 - Produces: reproducible local checks and Cafe24 deployment inputs without secrets
 
-- [ ] **Step 1: Run all available local verification**
+- [x] **Step 1: Run all available local verification**
 
 ```text
 node scripts/check-cafe24-schema.mjs
@@ -317,15 +317,15 @@ node scripts/cafe24-api-client.test.mjs
 npm run build
 ```
 
-- [ ] **Step 2: Scan for accidental secrets**
+- [x] **Step 2: Scan for accidental secrets**
 
 Run `rg -n "DB_PASSWORD|agentToken|adminPassword|OBS_WS_PASSWORD|AIza" public/api config database docs/cafe24-deployment-checklist.md` and verify only placeholder variable names appear; no credential values may appear.
 
-- [ ] **Step 3: Document the next required production inputs**
+- [x] **Step 3: Document the next required production inputs**
 
 Record only field names: PHP version, document root, private-config path, DB host/name/user, HTTPS URL, FTP/SFTP upload root. State that passwords are entered directly in the server-only config and never pasted into chat or committed.
 
-- [ ] **Step 4: Mark completed checkboxes and commit**
+- [x] **Step 4: Mark completed checkboxes and commit**
 
 ```bash
 git add docs/superpowers/plans/2026-08-05-cafe24-backend-foundation.md docs/superpowers/specs/2026-08-05-cafe24-admin-auth-design.md docs/cafe24-deployment-checklist.md

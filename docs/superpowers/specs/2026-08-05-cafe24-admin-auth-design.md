@@ -186,3 +186,21 @@ Firebase Auth의 비밀번호를 MySQL로 복사하지 않는다. 기존 관리�
 - Firebase Storage 파일의 카페24 이전
 
 향후 실제 필요가 확인되기 전에는 위 기능을 추가하지 않는다.
+
+## 2026-08-05 구현 상태
+
+Cafe24 기반 스키마, PHP 보안 공통부, 로그인·세션 API, 관리자 계정 API, React API 클라이언트까지 구현했다. 기존 Firebase 로그인은 아직 활성 상태이며 콘텐츠·미디어·방송 이전이 끝난 뒤 마지막 전환 단계에서 PHP 인증으로 교체한다.
+
+관련 파일:
+
+- `database/cafe24-schema.sql`
+- `public/api/_bootstrap.php`
+- `public/api/_security.php`
+- `public/api/_auth_service.php`
+- `public/api/auth.php`
+- `public/api/_admin_users_service.php`
+- `public/api/admin-users.php`
+- `src/api/httpClient.js`
+- `src/api/authApi.js`
+- `src/api/adminUsersApi.js`
+- `docs/cafe24-deployment-checklist.md`
