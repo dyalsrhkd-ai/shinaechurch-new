@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS `live_stream_agents` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `agent_key` VARCHAR(64) NOT NULL,
   `display_name` VARCHAR(100) NOT NULL,
+  `managed_keys_json` LONGTEXT NOT NULL,
   `token_hash` CHAR(64) NOT NULL,
   `active_yn` CHAR(1) NOT NULL DEFAULT 'Y',
   `status_key` VARCHAR(30) NOT NULL DEFAULT 'offline',
@@ -130,11 +131,12 @@ CREATE TABLE IF NOT EXISTS `live_stream_settings` (
 CREATE TABLE IF NOT EXISTS `live_stream_commands` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `request_key` CHAR(36) NOT NULL,
-  `agent_key` VARCHAR(64) NOT NULL,
+  `stream_key` VARCHAR(64) NOT NULL,
   `command_type` VARCHAR(30) NOT NULL,
   `payload_json` LONGTEXT NULL,
   `status_key` VARCHAR(20) NOT NULL DEFAULT 'pending',
   `requested_by_admin_id` BIGINT UNSIGNED NOT NULL,
+  `claimed_by_agent_key` VARCHAR(64) NULL,
   `claimed_at` DATETIME NULL,
   `completed_at` DATETIME NULL,
   `result_json` LONGTEXT NULL,
@@ -142,7 +144,8 @@ CREATE TABLE IF NOT EXISTS `live_stream_commands` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_live_stream_commands_request` (`request_key`),
-  KEY `idx_live_commands_poll` (`agent_key`, `status_key`, `id`),
-  CONSTRAINT `fk_live_commands_agent` FOREIGN KEY (`agent_key`) REFERENCES `live_stream_agents` (`agent_key`),
+  KEY `idx_live_commands_poll` (`stream_key`, `status_key`, `id`),
+  KEY `idx_live_commands_agent` (`claimed_by_agent_key`, `status_key`),
+  CONSTRAINT `fk_live_commands_agent` FOREIGN KEY (`claimed_by_agent_key`) REFERENCES `live_stream_agents` (`agent_key`) ON DELETE SET NULL,
   CONSTRAINT `fk_live_commands_admin` FOREIGN KEY (`requested_by_admin_id`) REFERENCES `admin_users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
