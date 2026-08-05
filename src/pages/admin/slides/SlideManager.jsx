@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addDoc, collection, deleteDoc, doc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore'
-import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { createContentDocument, deleteContentDocument, listContentDocuments, reorderContentDocuments, updateContentDocument } from '../../../api/contentApi'
+import { deleteMedia, uploadMedia } from '../../../utils/mediaStorage'
 import { validateImageFile } from '../../../utils/fileValidation'
 
 const stickyBarStyle = {
@@ -53,11 +52,10 @@ export default function SlideManager() {
     setLoading(true)
     setError('')
     try {
-      const snapshot = await getDocs(query(collection(db, 'slides'), orderBy('order')))
-      const data = snapshot.docs.map(item => ({ id: item.id, ...item.data() }))
+      const data = await listContentDocuments('slides', { sort: 'order', direction: 'asc' })
       const needsFix = data.some((item, index) => item.order !== index)
       if (needsFix) {
-        await Promise.all(data.map((item, index) => updateDoc(doc(db, 'slides', item.id), { order: index })))
+        await reorderContentDocuments('slides', data.map((item, index) => ({ id: item.id, order: index })))
       }
       const normalized = data.map((item, index) => ({ ...item, order: index, active: item.active !== false }))
       setSlides(normalized)
@@ -110,25 +108,14 @@ export default function SlideManager() {
       const baseOrder = slides.length
       for (let index = 0; index < queue.length; index += 1) {
         const item = queue[index]
-        const storageRef = ref(storage, `slides/${Date.now()}_${item.file.name}`)
-        const task = uploadBytesResumable(storageRef, item.file)
-        await new Promise((resolve, reject) => {
-          task.on(
-            'state_changed',
-            snapshot => {
-              const progress = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-              setUploadStatus(current => current.map((status, statusIndex) => (
-                statusIndex === index ? { ...status, progress } : status
-              )))
-            },
-            reject,
-            resolve
-          )
+        const uploaded = await uploadMedia(item.file, 'slides', (progress) => {
+          setUploadStatus(current => current.map((status, statusIndex) => (
+            statusIndex === index ? { ...status, progress } : status
+          )))
         })
-        const imgUrl = await getDownloadURL(storageRef)
-        await addDoc(collection(db, 'slides'), {
-          imgUrl,
-          storagePath: storageRef.fullPath,
+        await createContentDocument('slides', {
+          imgUrl: uploaded.url,
+          storagePath: uploaded.path,
           title: item.title,
           sub: item.sub,
           order: baseOrder + index,
@@ -168,7 +155,7 @@ export default function SlideManager() {
   const handleSaveAll = async () => {
     setSaving(true)
     try {
-      await Promise.all(slides.map((item, index) => updateDoc(doc(db, 'slides', item.id), {
+      await Promise.all(slides.map((item, index) => updateContentDocument('slides', item.id, {
         title: item.title || '',
         sub: item.sub || '',
         active: item.active !== false,
@@ -190,9 +177,9 @@ export default function SlideManager() {
     if (!window.confirm('슬라이드를 삭제할까요?')) return
     try {
       if (slide.storagePath) {
-        try { await deleteObject(ref(storage, slide.storagePath)) } catch {}
+        try { await deleteMedia(slide.storagePath) } catch {}
       }
-      await deleteDoc(doc(db, 'slides', slide.id))
+      await deleteContentDocument('slides', slide.id)
       sessionStorage.removeItem('mainSlides')
       await fetchSlides()
       window.dispatchEvent(new CustomEvent('admin:activity', { detail: { action: 'delete', message: '메인 슬라이드를 삭제했습니다.' } }))

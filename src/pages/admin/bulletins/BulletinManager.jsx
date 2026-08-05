@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDocs,
-  orderBy,
-  query,
-  Timestamp,
-  updateDoc,
-} from 'firebase/firestore'
-import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { createContentDocument, deleteContentDocument, listContentDocuments, updateContentDocument } from '../../../api/contentApi'
+import { deleteMedia, uploadMedia } from '../../../utils/mediaStorage'
 import { validateDocFile } from '../../../utils/fileValidation'
 
 const PER_PAGE = 15
@@ -73,11 +62,9 @@ export default function BulletinManager() {
     setLoading(true)
     setError('')
     try {
-      const snapshot = await getDocs(query(collection(db, 'bulletins'), orderBy('date', 'desc')))
-      const mapped = snapshot.docs.map((item) => {
-        const data = item.data()
+      const documents = await listContentDocuments('bulletins', { sort: 'date', direction: 'desc' })
+      const mapped = documents.map((data) => {
         return {
-          id: item.id,
           ...data,
           dateValue: toInputDate(data.date),
           pendingFile: null,
@@ -133,28 +120,14 @@ export default function BulletinManager() {
     setSaving(true)
     setUploadProgress(0)
     try {
-      const storageRef = ref(storage, `bulletins/${Date.now()}_${form.file.name}`)
-      const task = uploadBytesResumable(storageRef, form.file, {
-        contentDisposition: `attachment; filename="${form.file.name}"`,
-      })
-
-      await new Promise((resolve, reject) => {
-        task.on(
-          'state_changed',
-          (snapshot) => setUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)),
-          reject,
-          resolve,
-        )
-      })
-
-      const fileUrl = await getDownloadURL(storageRef)
-      await addDoc(collection(db, 'bulletins'), {
+      const uploaded = await uploadMedia(form.file, 'bulletins', setUploadProgress)
+      await createContentDocument('bulletins', {
         title: form.title.trim() || `${form.date.replace(/-/g, '.')} 주보`,
-        date: Timestamp.fromDate(new Date(form.date)),
-        fileUrl,
+        date: form.date,
+        fileUrl: uploaded.url,
         fileName: form.file.name,
         fileType: form.file.name.split('.').pop()?.toLowerCase() || '',
-        storagePath: storageRef.fullPath,
+        storagePath: uploaded.path,
       })
 
       sessionStorage.removeItem('mainBulletins')
@@ -212,36 +185,21 @@ export default function BulletinManager() {
         let storagePath = item.storagePath || ''
 
         if (item.pendingFile) {
-          const storageRef = ref(storage, `bulletins/${Date.now()}_${item.pendingFile.name}`)
-          const task = uploadBytesResumable(storageRef, item.pendingFile, {
-            contentDisposition: `attachment; filename="${item.pendingFile.name}"`,
+          const uploaded = await uploadMedia(item.pendingFile, 'bulletins', (fileProgress) => {
+            setUploadProgress(Math.round(((index + fileProgress / 100) / total) * 100))
           })
-
-          await new Promise((resolve, reject) => {
-            task.on(
-              'state_changed',
-              (snapshot) => {
-                const fileProgress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-                const totalProgress = Math.round(((index + fileProgress / 100) / total) * 100)
-                setUploadProgress(totalProgress)
-              },
-              reject,
-              resolve,
-            )
-          })
-
-          fileUrl = await getDownloadURL(storageRef)
+          fileUrl = uploaded.url
           if (item.storagePath) {
-            try { await deleteObject(ref(storage, item.storagePath)) } catch {}
+            try { await deleteMedia(item.storagePath) } catch {}
           }
-          storagePath = storageRef.fullPath
+          storagePath = uploaded.path
           fileName = item.pendingFile.name
           fileType = item.pendingFile.name.split('.').pop()?.toLowerCase() || ''
         }
 
-        await updateDoc(doc(db, 'bulletins', item.id), {
+        await updateContentDocument('bulletins', item.id, {
           title: item.title.trim(),
-          date: Timestamp.fromDate(new Date(item.dateValue)),
+          date: item.dateValue,
           fileUrl,
           fileName,
           fileType,
@@ -276,9 +234,9 @@ export default function BulletinManager() {
 
     try {
       if (item.storagePath) {
-        try { await deleteObject(ref(storage, item.storagePath)) } catch {}
+        try { await deleteMedia(item.storagePath) } catch {}
       }
-      await deleteDoc(doc(db, 'bulletins', item.id))
+      await deleteContentDocument('bulletins', item.id)
       sessionStorage.removeItem('mainBulletins')
       await fetchBulletins()
       window.dispatchEvent(new CustomEvent('admin:activity', { detail: { action: 'delete', message: `주보를 삭제했습니다. (${item.title})` } }))

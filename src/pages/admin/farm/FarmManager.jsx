@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  collection, getDocs, addDoc, deleteDoc, doc,
-  orderBy, query, serverTimestamp, getDoc, setDoc,
-} from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { createContentDocument, deleteContentDocument, getContentDocument, listContentDocuments, upsertContentDocument } from '../../../api/contentApi'
+import { deleteMedia, uploadMedia } from '../../../utils/mediaStorage'
 import { validateImageFile } from '../../../utils/fileValidation'
 
 const DEFAULTS = {
@@ -13,6 +9,7 @@ const DEFAULTS = {
   intro2: '또한 연못에는 미꾸라지, 붕어, 잉어, 뱀장어 등을 방류하여 교인들과 인근 마을 주민들의 휴식처로 활용하고 있습니다.',
   manager: '김강석 장로',
   managerRole: '연합남전도회 관리',
+  heroImageUrl: '',
 }
 
 const PER_PAGE = 12
@@ -36,16 +33,17 @@ const stickyBarStyle = {
 }
 
 // contentEditable 인라인 편집 컴포넌트
-function Editable({ value, onChange, placeholder, style, as: Tag = 'p' }) {
+function Editable({ value, onChange, placeholder, style, as = 'p' }) {
   const ref = useRef(null)
   const [focused, setFocused] = useState(false)
+  const Element = as
 
   useEffect(() => {
     if (!focused && ref.current) ref.current.textContent = value || placeholder || ''
   }, [focused, value, placeholder])
 
   return (
-    <Tag
+    <Element
       ref={ref}
       contentEditable
       suppressContentEditableWarning
@@ -66,7 +64,7 @@ function Editable({ value, onChange, placeholder, style, as: Tag = 'p' }) {
       }}
     >
       {value || placeholder}
-    </Tag>
+    </Element>
   )
 }
 
@@ -78,37 +76,38 @@ export default function FarmManager() {
   const [page, setPage] = useState(1)
   const [saving, setSaving] = useState(false)
   const [info, setInfo] = useState(DEFAULTS)
+  const [uploadingHero, setUploadingHero] = useState(false)
   const [form, setForm] = useState({ label: '', file: null, preview: null })
   const fileRef = useRef()
+  const heroRef = useRef()
 
   const fetchPhotos = async () => {
     setLoading(true)
     try {
-      const snap = await getDocs(query(collection(db, 'farm'), orderBy('order', 'desc')))
-      setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setPhotos(await listContentDocuments('farm', { sort: 'order', direction: 'desc' }))
     } catch (e) { console.error(e) }
     setLoading(false)
   }
 
   useEffect(() => {
     fetchPhotos()
-    getDoc(doc(db, 'farm_info', 'main')).then(snap => {
-      if (snap.exists()) setInfo({ ...DEFAULTS, ...snap.data() })
+    getContentDocument('farm_info', 'main').then(document => {
+      if (document) setInfo({ ...DEFAULTS, ...document })
     }).catch(console.error)
   }, [])
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await setDoc(doc(db, 'farm_info', 'main'), {
+      await upsertContentDocument('farm_info', 'main', {
         introTitle: info.introTitle.trim(),
         intro1: info.intro1.trim(),
         intro2: info.intro2.trim(),
         manager: info.manager.trim(),
         managerRole: info.managerRole.trim(),
-        updatedAt: serverTimestamp(),
+        heroImageUrl: info.heroImageUrl || '',
       })
-      window.dispatchEvent(new Event('admin:changes-saved'))
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '영선관리 정보를 저장했습니다.' } }))
       alert('저장되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setSaving(false)
@@ -123,20 +122,38 @@ export default function FarmManager() {
     e.target.value = ''
   }
 
+  const handleHeroChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const err = validateImageFile(file)
+    if (err) { alert(err); e.target.value = ''; return }
+
+    setUploadingHero(true)
+    try {
+      const { url: heroImageUrl } = await uploadMedia(file, 'farm')
+      setInfo(current => ({ ...current, heroImageUrl }))
+      await upsertContentDocument('farm_info', 'main', {
+        ...info,
+        heroImageUrl,
+      })
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '영선관리 배너 이미지를 저장했습니다.' } }))
+      alert('상단 배너 이미지가 업데이트되었습니다.')
+    } catch (error) {
+      alert('오류: ' + error.message)
+    }
+    setUploadingHero(false)
+    e.target.value = ''
+  }
+
   const handleAddPhoto = async () => {
     if (!form.file) return alert('이미지를 선택하세요')
     if (!form.label.trim()) return alert('사진 설명을 입력하세요')
     setUploading(true); setProgress(0)
     try {
-      const storageRef = ref(storage, `farm/${Date.now()}_${form.file.name}`)
-      const task = uploadBytesResumable(storageRef, form.file)
-      await new Promise((resolve, reject) =>
-        task.on('state_changed', s => setProgress(Math.round(s.bytesTransferred / s.totalBytes * 100)), reject, resolve)
-      )
-      const imgUrl = await getDownloadURL(storageRef)
-      await addDoc(collection(db, 'farm'), {
-        label: form.label.trim(), imgUrl, storagePath: storageRef.fullPath,
-        order: Date.now(), createdAt: serverTimestamp(),
+      const uploaded = await uploadMedia(form.file, 'farm', setProgress)
+      await createContentDocument('farm', {
+        label: form.label.trim(), imgUrl: uploaded.url, storagePath: uploaded.path,
+        order: Date.now(),
       })
       if (form.preview) URL.revokeObjectURL(form.preview)
       setForm({ label: '', file: null, preview: null })
@@ -147,8 +164,8 @@ export default function FarmManager() {
 
   const handleDelete = async (photo) => {
     if (!window.confirm('삭제하시겠습니까?')) return
-    if (photo.storagePath) { try { await deleteObject(ref(storage, photo.storagePath)) } catch {} }
-    await deleteDoc(doc(db, 'farm', photo.id))
+    if (photo.storagePath) { try { await deleteMedia(photo.storagePath) } catch {} }
+    await deleteContentDocument('farm', photo.id)
     fetchPhotos()
   }
 
@@ -179,6 +196,23 @@ export default function FarmManager() {
       </div>
 
       {/* ── 실제 페이지와 동일한 레이아웃 ── */}
+
+      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '18px 20px', marginBottom: '20px' }}>
+        <p style={{ fontWeight: 700, fontSize: '0.875rem', color: '#14532d', marginBottom: '12px' }}>상단 배너 이미지</p>
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ width: '220px', aspectRatio: '16/7', borderRadius: '12px', overflow: 'hidden', border: '1px solid #bbf7d0', background: '#dcfce7' }}>
+            {info.heroImageUrl ? <img src={info.heroImageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+          </div>
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <input ref={heroRef} type="file" accept=".jpg,.jpeg,.png" onChange={handleHeroChange} style={{ display: 'none' }} />
+            <button onClick={() => heroRef.current?.click()} disabled={uploadingHero}
+              style={{ padding: '9px 14px', background: '#166534', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
+              {uploadingHero ? '업로드 중...' : '배너 이미지 변경'}
+            </button>
+            <p style={{ fontSize: '0.76rem', color: '#4b5563' }}>영선관리 공개 페이지 상단 배너에 바로 반영됩니다.</p>
+          </div>
+        </div>
+      </div>
 
       {/* 소개 카드 */}
       <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', borderRadius: '14px', padding: '28px', marginBottom: '28px', borderLeft: '4px solid #16a34a' }}>

@@ -1,29 +1,65 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, getDocs, addDoc, deleteDoc, doc, orderBy, query, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../../firebase'
+import { createContentDocument, deleteContentDocument, listContentDocuments, updateContentDocument } from '../../../api/contentApi'
 import { extractYoutubeId, getYoutubeThumb } from '../../../data/media'
 
 const PER_PAGE = 15
 
+const stickyBarStyle = {
+  position: 'sticky',
+  top: '88px',
+  zIndex: 8,
+  background: 'rgba(255,255,255,0.96)',
+  backdropFilter: 'blur(14px)',
+  border: '1px solid #dbe4f0',
+  borderRadius: '16px',
+  padding: '14px 16px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  boxShadow: '0 12px 28px rgba(15, 32, 64, 0.08)',
+  marginBottom: '20px',
+}
+
+function serializeItems(list) {
+  return JSON.stringify(list.map(item => ({
+    id: item.id,
+    title: item.title || '',
+    ref: item.ref || '',
+    date: item.date || '',
+    youtubeId: item.youtubeId || '',
+  })))
+}
+
 export default function SundayManager() {
   const [sermons, setSermons] = useState([])
+  const [originalSermons, setOriginalSermons] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [page, setPage] = useState(1)
   const [form, setForm] = useState({ title: '', ref: '', date: '', youtubeId: '' })
 
+  const hasUnsavedChanges = useMemo(
+    () => serializeItems(sermons) !== serializeItems(originalSermons),
+    [sermons, originalSermons]
+  )
+
   const fetchSermons = async () => {
     setLoading(true)
     try {
-      const snap = await getDocs(query(collection(db, 'sundaySermons'), orderBy('order', 'desc')))
-      setSermons(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    } catch (e) {
-      console.error(e)
+      const mapped = await listContentDocuments('sundaySermons', { sort: 'order', direction: 'desc' })
+      setSermons(mapped)
+      setOriginalSermons(mapped.map(item => ({ ...item })))
+    } catch (error) {
+      console.error(error)
     }
     setLoading(false)
   }
 
-  useEffect(() => { fetchSermons() }, [])
+  useEffect(() => {
+    fetchSermons()
+  }, [])
 
   const paged = useMemo(() => {
     const totalPages = Math.max(1, Math.ceil(sermons.length / PER_PAGE))
@@ -32,30 +68,66 @@ export default function SundayManager() {
   }, [page, sermons])
 
   const handleAdd = async () => {
-    if (!form.title.trim()) return alert('제목을 입력하세요')
-    if (!form.youtubeId.trim()) return alert('YouTube ID 또는 URL을 입력하세요')
+    if (!form.title.trim()) return alert('제목을 입력해 주세요.')
+    if (!form.youtubeId.trim()) return alert('YouTube ID 또는 URL을 입력해 주세요.')
     setSaving(true)
     try {
-      await addDoc(collection(db, 'sundaySermons'), {
+      await createContentDocument('sundaySermons', {
         title: form.title.trim(),
         ref: form.ref.trim(),
         date: form.date.trim(),
         youtubeId: extractYoutubeId(form.youtubeId),
         order: Date.now(),
-        createdAt: serverTimestamp(),
       })
       setForm({ title: '', ref: '', date: '', youtubeId: '' })
       await fetchSermons()
-    } catch (e) {
-      alert('오류: ' + e.message)
+      window.dispatchEvent(new CustomEvent('admin:activity', { detail: { action: 'create', message: '주일설교를 등록했습니다.' } }))
+    } catch (error) {
+      alert(`오류: ${error.message}`)
     }
     setSaving(false)
   }
 
-  const handleDelete = async (id) => {
+  const handleItemChange = (itemId, field, value) => {
+    setSermons(current => current.map(item => (
+      item.id === itemId ? { ...item, [field]: value } : item
+    )))
+  }
+
+  const handleSaveAll = async () => {
+    const invalidItem = sermons.find(item => !item.title?.trim() || !item.youtubeId?.trim())
+    if (invalidItem) return alert('제목 또는 유튜브 주소가 비어 있는 항목이 있습니다.')
+
+    setSaving(true)
+    try {
+      await Promise.all(sermons.map(item => updateContentDocument('sundaySermons', item.id, {
+        title: item.title.trim(),
+        ref: item.ref?.trim() || '',
+        date: item.date?.trim() || '',
+        youtubeId: extractYoutubeId(item.youtubeId),
+      })))
+
+      const normalized = sermons.map(item => ({
+        ...item,
+        title: item.title.trim(),
+        ref: item.ref?.trim() || '',
+        date: item.date?.trim() || '',
+        youtubeId: extractYoutubeId(item.youtubeId),
+      }))
+      setSermons(normalized)
+      setOriginalSermons(normalized.map(item => ({ ...item })))
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '주일설교를 저장했습니다.' } }))
+    } catch (error) {
+      alert(`오류: ${error.message}`)
+    }
+    setSaving(false)
+  }
+
+  const handleDelete = async id => {
     if (!window.confirm('삭제하시겠습니까?')) return
-    await deleteDoc(doc(db, 'sundaySermons', id))
-    fetchSermons()
+    await deleteContentDocument('sundaySermons', id)
+    await fetchSermons()
+    window.dispatchEvent(new CustomEvent('admin:activity', { detail: { action: 'delete', message: '주일설교를 삭제했습니다.' } }))
   }
 
   const previewId = form.youtubeId ? extractYoutubeId(form.youtubeId) : ''
@@ -64,109 +136,57 @@ export default function SundayManager() {
     <div>
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f2040' }}>주일설교 관리</h1>
-        <p style={{ fontSize: '0.82rem', color: '#9ca3af', marginTop: '4px' }}>총 {sermons.length}개 설교</p>
+        <p style={{ fontSize: '0.82rem', color: '#9ca3af', marginTop: '4px' }}>설교 항목을 목록에서 바로 수정하고 상단 저장으로 한 번에 반영합니다.</p>
       </div>
 
-      {/* 등록 폼 */}
+      <div style={stickyBarStyle}>
+        <div>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.08em', marginBottom: '4px' }}>상단 저장</p>
+          <p style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f2040' }}>주일설교 인라인 편집</p>
+          <p style={{ fontSize: '0.76rem', color: hasUnsavedChanges ? '#1d4ed8' : '#6b7280', marginTop: '2px' }}>
+            {hasUnsavedChanges ? '기존 설교 항목을 수정 중입니다. 저장 버튼으로 반영하세요.' : `총 ${sermons.length}건`}
+          </p>
+        </div>
+        <button onClick={handleSaveAll} disabled={saving || !hasUnsavedChanges} style={{ padding: '11px 18px', background: saving || !hasUnsavedChanges ? '#cbd5e1' : '#0f2040', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: saving || !hasUnsavedChanges ? 'default' : 'pointer', fontSize: '0.9rem' }}>
+          {saving ? '저장 중...' : '저장'}
+        </button>
+      </div>
+
       <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '20px', marginBottom: '28px' }}>
-        <p style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040', marginBottom: '14px' }}>주일설교 등록</p>
+        <p style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f2040', marginBottom: '14px' }}>새 주일설교 등록</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <input
-            value={form.title}
-            onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            placeholder="설교 제목 *"
-            style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.875rem' }}
-          />
-          <input
-            value={form.ref}
-            onChange={e => setForm(f => ({ ...f, ref: e.target.value }))}
-            placeholder="성경 구절 (예: 요 3:16)"
-            style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.875rem' }}
-          />
-          <input
-            value={form.date}
-            onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-            placeholder="설교 날짜 (예: 2025.03.23)"
-            style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.875rem' }}
-          />
-          <input
-            value={form.youtubeId}
-            onChange={e => setForm(f => ({ ...f, youtubeId: e.target.value }))}
-            placeholder="YouTube ID 또는 URL *"
-            style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px', fontSize: '0.875rem' }}
-          />
+          <input value={form.title} onChange={event => setForm(current => ({ ...current, title: event.target.value }))} placeholder="설교 제목" style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px' }} />
+          <input value={form.ref} onChange={event => setForm(current => ({ ...current, ref: event.target.value }))} placeholder="성경 구절" style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px' }} />
+          <input value={form.date} onChange={event => setForm(current => ({ ...current, date: event.target.value }))} placeholder="설교 날짜" style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px' }} />
+          <input value={form.youtubeId} onChange={event => setForm(current => ({ ...current, youtubeId: event.target.value }))} placeholder="YouTube ID 또는 URL" style={{ padding: '10px 12px', border: '1px solid #fecaca', borderRadius: '8px' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '14px' }}>
-          {previewId && (
-            <img
-              src={getYoutubeThumb(previewId)}
-              alt=""
-              style={{ width: '140px', height: '79px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #fecaca', flexShrink: 0 }}
-            />
-          )}
-          <button
-            onClick={handleAdd}
-            disabled={saving}
-            style={{ padding: '10px 28px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}
-          >
-            {saving ? '저장 중...' : '등록'}
-          </button>
+          {previewId ? <img src={getYoutubeThumb(previewId)} alt="" style={{ width: '140px', height: '79px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #fecaca', flexShrink: 0 }} /> : null}
+          <button onClick={handleAdd} disabled={saving} style={{ padding: '10px 28px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>등록</button>
         </div>
       </div>
 
-      {/* 목록 */}
       {loading ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
       ) : sermons.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', border: '1px solid #eaecf0', borderRadius: '12px', background: '#fff' }}>
-          등록된 주일설교가 없습니다.
-        </div>
+        <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', border: '1px solid #eaecf0', borderRadius: '12px', background: '#fff' }}>등록된 주일설교가 없습니다.</div>
       ) : (
         <>
-          <div style={{ border: '1px solid #eaecf0', borderRadius: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px 120px 80px', background: '#0f2040', padding: '10px 16px' }}>
-              {['썸네일', '제목', '성경 구절', '날짜', ''].map(h => (
-                <span key={h} style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{h}</span>
-              ))}
-            </div>
-            {paged.items.map((item, index) => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'grid', gridTemplateColumns: '80px 1fr 140px 120px 80px',
-                  padding: '10px 16px', borderBottom: index < paged.items.length - 1 ? '1px solid #f0f2f5' : 'none',
-                  background: index % 2 === 0 ? '#fff' : '#fafbfc', alignItems: 'center', gap: '8px',
-                }}
-              >
-                <img src={getYoutubeThumb(item.youtubeId)} alt="" style={{ width: '70px', height: '39px', objectFit: 'cover', borderRadius: '4px' }} />
-                <span style={{ fontSize: '0.82rem', color: '#0f2040', fontWeight: 500 }}>{item.title}</span>
-                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{item.ref || '-'}</span>
-                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>{item.date || '-'}</span>
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  style={{ fontSize: '0.75rem', color: '#dc2626', background: 'none', border: '1px solid #fca5a5', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}
-                >
-                  삭제
-                </button>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {paged.items.map(item => (
+              <div key={item.id} style={{ background: '#fff', border: '1px solid #eaecf0', borderRadius: '14px', padding: '16px', display: 'grid', gridTemplateColumns: '96px 1fr auto', gap: '14px', alignItems: 'center' }}>
+                <img src={getYoutubeThumb(extractYoutubeId(item.youtubeId))} alt="" style={{ width: '96px', height: '54px', objectFit: 'cover', borderRadius: '8px' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px 1fr', gap: '10px' }}>
+                  <input value={item.title || ''} onChange={event => handleItemChange(item.id, 'title', event.target.value)} placeholder="설교 제목" style={{ padding: '9px 11px', border: '1px solid #dbe4f0', borderRadius: '8px' }} />
+                  <input value={item.ref || ''} onChange={event => handleItemChange(item.id, 'ref', event.target.value)} placeholder="성경 구절" style={{ padding: '9px 11px', border: '1px solid #dbe4f0', borderRadius: '8px' }} />
+                  <input value={item.date || ''} onChange={event => handleItemChange(item.id, 'date', event.target.value)} placeholder="설교 날짜" style={{ padding: '9px 11px', border: '1px solid #dbe4f0', borderRadius: '8px' }} />
+                  <input value={item.youtubeId || ''} onChange={event => handleItemChange(item.id, 'youtubeId', event.target.value)} placeholder="YouTube ID 또는 URL" style={{ padding: '9px 11px', border: '1px solid #dbe4f0', borderRadius: '8px' }} />
+                </div>
+                <button onClick={() => handleDelete(item.id)} style={{ padding: '8px 12px', border: '1px solid #fca5a5', borderRadius: '8px', background: '#fff', color: '#dc2626', fontWeight: 700, cursor: 'pointer' }}>삭제</button>
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
-            {Array.from({ length: paged.totalPages }, (_, i) => i + 1).map(p => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                style={{
-                  width: '32px', height: '32px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.82rem',
-                  background: paged.safePage === p ? '#0f2040' : '#f3f4f6',
-                  color: paged.safePage === p ? '#fff' : '#374151',
-                  fontWeight: paged.safePage === p ? 700 : 400,
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+          {paged.totalPages > 1 ? <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>{Array.from({ length: paged.totalPages }, (_, index) => index + 1).map(number => <button key={number} onClick={() => setPage(number)} style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '0.82rem', background: paged.safePage === number ? '#0f2040' : '#f3f4f6', color: paged.safePage === number ? '#fff' : '#374151', fontWeight: paged.safePage === number ? 700 : 400 }}>{number}</button>)}</div> : null}
         </>
       )}
     </div>
