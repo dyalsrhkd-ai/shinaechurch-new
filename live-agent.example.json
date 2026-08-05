@@ -1,0 +1,16 @@
+{
+  "apiBaseUrl": "https://www.shinaechurch.co.kr",
+  "agentId": "replace-with-agent-id",
+  "agentToken": "replace-with-issued-agent-token",
+  "managedStreamKeys": [
+    "main"
+  ],
+  "obsUrl": "ws://127.0.0.1:4444",
+  "obsPassword": "replace-with-local-obs-password",
+  "agentLabel": "replace-with-pc-label",
+  "heartbeatMs": 15000,
+  "videoResyncMs": 600000,
+  "youtubeAutomationPort": 9223,
+  "adminPageUrl": "https://www.shinaechurch.co.kr/#/admin/settings/live/main",
+  "streamSettings": {}
+}

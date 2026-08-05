@@ -518,9 +518,8 @@ function sleep(ms) {
 }
 
 async function main() {
-  ensureWindowsAutoStart()
-
   const runtimeConfig = resolveRuntimeConfig()
+  ensureWindowsAutoStart()
   const apiClient = createLiveAgentApiClient(runtimeConfig)
   const obs = new OBSWebSocket()
   let liveSettings = {}

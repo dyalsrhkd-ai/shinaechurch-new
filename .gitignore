@@ -2,3 +2,10 @@ node_modules/
 dist/
 
 .vercel
+live-agents-dist/
+live-agent.*.json
+!live-agent.example.json
+pkg-debug.log
+*.log
+tmp-edge-cookies.db
+tmp_young_live.html

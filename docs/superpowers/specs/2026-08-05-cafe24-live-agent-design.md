@@ -173,3 +173,15 @@ EXE는 서버의 `resolve-video`를 우선 사용하고, 기존 채널 페이지
 - WebSocket 서버나 메시지 큐 도입
 - 송출 PC 운영체제 업그레이드
 - 기존 EXE 전체 런타임의 즉시 통합 리팩터링
+
+## 2026-08-05 로컬 구현 상태
+
+- Cafe24 라이브 DB 스키마, PHP API, React 관리자·공개 화면 구현 완료
+- 아동부·중고등부·청년부·중고등부/청년부 통합·대예배 EXE의 Firebase 통신 제거 완료
+- OBS 27, obs-websocket v4, 포트 4444, Windows 8.1용 Node 16 빌드 유지
+- 시험 빌드: `live-agents-dist/test-20260805-032123`
+- EXE 5종, 예제 설정파일, 설치 안내서 생성 확인
+- 설정파일 누락 시 오류 종료하며 Windows 자동실행을 등록하지 않는 것까지 로컬 실행 검증 완료
+- `pkg`의 Babel 경고는 Playwright의 `appIcon.png`를 소스로 검사하면서 발생하는 무해한 경고로 확인
+- 운영 배포와 실제 방송 PC의 OBS·Chrome·YouTube 시작/종료/재연결 검수는 아직 수행하지 않음
+- 모든 방송 PC 전환 후 기존 소스·문서에 사용된 Firebase, OBS, YouTube 자격증명을 폐기하고 재발급해야 함
