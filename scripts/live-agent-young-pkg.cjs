@@ -1,34 +1,17 @@
-const os = require('node:os')
+// Windows 8.1 broadcasting PCs use Node 16, OBS 27 and obs-websocket v4 on port 4444.
+if (typeof globalThis.fetch !== 'function') globalThis.fetch = require('undici').fetch
+
 const process = require('node:process')
 const fs = require('node:fs')
 const path = require('node:path')
 const { spawn } = require('node:child_process')
 const { chromium } = require('playwright-core')
-const OBSWebSocket = require('obs-websocket-js').default
-const { initializeApp } = require('firebase/app')
-const { doc, getDoc, onSnapshot, serverTimestamp, setDoc, getFirestore } = require('firebase/firestore')
-const { getAuth, signInWithEmailAndPassword } = require('firebase/auth')
+const OBSWebSocket = require('./obs-compat.cjs')
+const { createLiveAgentApiClient } = require('./live-agent-api-client.cjs')
 
-const LIVE_STREAM_AGENT_COLLECTION = 'liveStreamAgents'
-const LIVE_STREAM_CONTROL_COLLECTION = 'liveStreamControls'
-const DEFAULT_OBS_URL = 'ws://127.0.0.1:4455'
-const DEFAULT_OBS_PASSWORD = '123456789#'
-const DEFAULT_ADMIN_EMAIL = 'admin@shinaechurch.com'
-const DEFAULT_ADMIN_PASSWORD = '123456789!'
 const STREAM_KEY = 'young'
 const YOUTUBE_AUTOMATION_PORT = 9223
-const YOUTUBE_API_KEYS = [
-  'AIzaSyAIzzSeolSPp16rsqS8lcB-D6n3hg8fg1o',
-]
-
-const firebaseConfig = {
-  apiKey: 'AIzaSyDroOJix6yaqw65JMCvP7ZfE-Ihku8Pvxk',
-  authDomain: 'shinae-new.firebaseapp.com',
-  projectId: 'shinae-new',
-  storageBucket: 'shinae-new.firebasestorage.app',
-  messagingSenderId: '61716478568',
-  appId: '1:61716478568:web:41f329a0047eb88a02d9dd',
-}
+const INITIAL_LIVE_ID_DELAY_MS = 30000
 
 function getExecutableDir() {
   return path.dirname(process.execPath)
@@ -60,12 +43,27 @@ function logWarn(message) {
   console.warn(`[live-agent] ${message}`)
 }
 
+let globalLastStartRequestedAt = 0
+
+function logTimeline(label, timestamp = Date.now()) {
+  const sinceStart = globalLastStartRequestedAt ? `${Math.max(0, timestamp - globalLastStartRequestedAt)}ms` : 'n/a'
+  logInfo(`timeline ${label} => ${new Date(timestamp).toISOString()} (since start: ${sinceStart})`)
+}
+
 function getStartupScriptPath() {
   const startupDir = process.env.APPDATA
     ? path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
     : ''
 
   return startupDir ? path.join(startupDir, 'ShinaeLiveAgent-young.cmd') : ''
+}
+
+function getChromeStartupScriptPath() {
+  const startupDir = process.env.APPDATA
+    ? path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+    : ''
+
+  return startupDir ? path.join(startupDir, 'ShinaeLiveChrome-young.cmd') : ''
 }
 
 function ensureWindowsAutoStart() {
@@ -84,13 +82,56 @@ function ensureWindowsAutoStart() {
   }
 }
 
+function ensureChromeAutomationAutoStart(profileName) {
+  if (process.platform !== 'win32') return false
+
+  const executablePath = findChromeExecutable()
+  if (!executablePath) return false
+
+  const startupScriptPath = getChromeStartupScriptPath()
+  if (!startupScriptPath) return false
+
+  const { profileName: resolvedProfileName, userDataRoot } = ensureChromeAutomationProfileExists(profileName)
+  const command = [
+    '@echo off',
+    `start "" "${executablePath}" --remote-debugging-port=${YOUTUBE_AUTOMATION_PORT} --user-data-dir="${userDataRoot}" --profile-directory="${resolvedProfileName}" about:blank`,
+    '',
+  ].join('\r\n')
+
+  try {
+    fs.writeFileSync(startupScriptPath, command, 'utf8')
+    return true
+  } catch (error) {
+    logWarn(`Failed to register Chrome startup script: ${error.message}`)
+    return false
+  }
+}
+
 function resolveRuntimeConfig() {
+  const configPath = path.join(getExecutableDir(), `live-agent.${STREAM_KEY}.json`)
+  if (!fs.existsSync(configPath)) throw new Error(`Missing live agent config: ${configPath}`)
+
+  let config
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  } catch (error) {
+    throw new Error(`Invalid live agent config ${configPath}: ${error.message}`)
+  }
+
+  const required = ['apiBaseUrl', 'agentId', 'agentToken', 'obsUrl', 'obsPassword', 'agentLabel']
+  const missing = required.filter((key) => !String(config[key] || '').trim())
+  if (missing.length) throw new Error(`Missing live agent config fields: ${missing.join(', ')}`)
+  if (Array.isArray(config.managedStreamKeys) && !config.managedStreamKeys.includes(STREAM_KEY)) {
+    throw new Error(`managedStreamKeys must include ${STREAM_KEY}.`)
+  }
+
   return {
-    obsUrl: DEFAULT_OBS_URL,
-    obsPassword: DEFAULT_OBS_PASSWORD,
-    agentLabel: `${os.hostname()}-${STREAM_KEY}`,
-    adminEmail: DEFAULT_ADMIN_EMAIL,
-    adminPassword: DEFAULT_ADMIN_PASSWORD,
+    apiBaseUrl: String(config.apiBaseUrl).trim(),
+    agentId: String(config.agentId).trim(),
+    agentToken: String(config.agentToken).trim(),
+    obsUrl: String(config.obsUrl).trim(),
+    obsPassword: String(config.obsPassword),
+    agentLabel: String(config.agentLabel).trim(),
   }
 }
 
@@ -112,6 +153,27 @@ function getChromeUserDataRoot() {
   return path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data')
 }
 
+function getChromeAutomationUserDataRoot() {
+  return path.join(process.env.LOCALAPPDATA || getExecutableDir(), `ShinaeLiveChrome-${STREAM_KEY}`)
+}
+
+function shouldSkipChromeProfileCopy(relativePath) {
+  const normalized = String(relativePath || '').replaceAll('\\', '/')
+  const baseName = path.basename(normalized)
+
+  if (!baseName) return false
+  if (baseName === 'lockfile' || baseName === 'DevToolsActivePort') return true
+  if (baseName === 'Cookies' || baseName === 'Cookies-journal') return true
+  if (baseName.startsWith('Singleton')) return true
+  if (normalized.startsWith('Crashpad/')) return true
+  if (normalized.startsWith('ShaderCache/')) return true
+  if (normalized.startsWith('GrShaderCache/')) return true
+  if (normalized.startsWith('DawnCache/')) return true
+  if (normalized.startsWith('Code Cache/')) return true
+
+  return false
+}
+
 function ensureChromeAutomationProfileExists(profileName) {
   const sourceRoot = getChromeUserDataRoot()
   const normalizedProfileName = String(profileName || '').trim() || 'Default'
@@ -119,7 +181,32 @@ function ensureChromeAutomationProfileExists(profileName) {
   if (!fs.existsSync(sourceProfileDir)) {
     throw new Error(`Chrome profile not found: ${sourceProfileDir}`)
   }
-  return { profileName: normalizedProfileName, sourceRoot }
+
+  const automationRoot = getChromeAutomationUserDataRoot()
+  const automationProfileDir = path.join(automationRoot, normalizedProfileName)
+
+  if (!fs.existsSync(automationProfileDir)) {
+    logInfo(`Bootstrapping Chrome automation profile ${normalizedProfileName}`)
+    fs.mkdirSync(automationRoot, { recursive: true })
+
+    const localStatePath = path.join(sourceRoot, 'Local State')
+    const targetLocalStatePath = path.join(automationRoot, 'Local State')
+    if (fs.existsSync(localStatePath) && !fs.existsSync(targetLocalStatePath)) {
+      fs.copyFileSync(localStatePath, targetLocalStatePath)
+    }
+
+    fs.cpSync(sourceProfileDir, automationProfileDir, {
+      recursive: true,
+      force: true,
+      errorOnExist: false,
+      filter: (_, dest) => {
+        const relativePath = path.relative(automationProfileDir, dest)
+        return !shouldSkipChromeProfileCopy(relativePath)
+      },
+    })
+  }
+
+  return { profileName: normalizedProfileName, sourceRoot, userDataRoot: automationRoot }
 }
 
 async function waitForChromeDebugEndpoint(timeoutMs = 15000) {
@@ -143,16 +230,25 @@ async function waitForChromeDebugEndpoint(timeoutMs = 15000) {
   throw new Error('Chrome remote debugging endpoint did not open in time')
 }
 
-function launchChromeAutomationWindow(executablePath, studioUrl, profileName) {
-  const { profileName: resolvedProfileName, sourceRoot } = ensureChromeAutomationProfileExists(profileName)
+async function hasChromeDebugEndpoint() {
+  try {
+    await waitForChromeDebugEndpoint(1500)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function launchChromeAutomationWindow(executablePath, profileName, startUrl = 'about:blank') {
+  const { profileName: resolvedProfileName, userDataRoot } = ensureChromeAutomationProfileExists(profileName)
   logInfo(`Launching YouTube Studio automation with profile ${resolvedProfileName}`)
 
   const args = [
     `--remote-debugging-port=${YOUTUBE_AUTOMATION_PORT}`,
-    `--user-data-dir=${sourceRoot}`,
+    `--user-data-dir=${userDataRoot}`,
     `--profile-directory=${resolvedProfileName}`,
     '--new-window',
-    studioUrl,
+    startUrl,
   ]
 
   const child = spawn(executablePath, args, {
@@ -163,6 +259,70 @@ function launchChromeAutomationWindow(executablePath, studioUrl, profileName) {
   child.unref()
 
   return { profileName: resolvedProfileName }
+}
+
+async function ensureChromeAutomationBrowser(profileName) {
+  const executablePath = findChromeExecutable()
+  if (!executablePath) {
+    throw new Error('Chrome or Edge executable not found')
+  }
+
+  const { profileName: resolvedProfileName } = ensureChromeAutomationProfileExists(profileName)
+
+  if (await hasChromeDebugEndpoint()) {
+    logInfo(`Chrome remote debugging endpoint already available for profile ${resolvedProfileName}`)
+    return resolvedProfileName
+  }
+
+  launchChromeAutomationWindow(executablePath, resolvedProfileName)
+  await waitForChromeDebugEndpoint(20000)
+  logInfo(`Chrome remote debugging endpoint ready for profile ${resolvedProfileName}`)
+  return resolvedProfileName
+}
+
+async function getReusableAutomationPage(context) {
+  const pages = context?.pages?.() || []
+  const studioPage = pages.find((item) => String(item.url() || '').includes('studio.youtube.com'))
+  if (studioPage) return studioPage
+
+  const reusablePage = pages.find((item) => {
+    const url = String(item.url() || '').trim()
+    return !url || url === 'about:blank'
+  }) || pages[0]
+
+  if (reusablePage) return reusablePage
+  return context.newPage()
+}
+
+async function openYoutubeStudioDashboard(channelId) {
+  if (!channelId) return false
+
+  const studioUrl = `https://studio.youtube.com/channel/${channelId}/livestreaming/dashboard`
+  let browser
+  try {
+    const wsEndpoint = await waitForChromeDebugEndpoint()
+    browser = await chromium.connectOverCDP(wsEndpoint)
+    const context = browser.contexts()[0]
+    if (!context) {
+      throw new Error('Chrome automation context not available')
+    }
+
+    const page = await getReusableAutomationPage(context)
+    await page.bringToFront().catch(() => {})
+    if (String(page.url() || '') !== studioUrl) {
+      await page.goto(studioUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    }
+    logInfo(`YouTube Studio dashboard opened => ${studioUrl}`)
+    return true
+  } finally {
+    if (browser) {
+      if (typeof browser.disconnect === 'function') {
+        browser.disconnect()
+      } else {
+        await browser.close().catch(() => {})
+      }
+    }
+  }
 }
 
 async function clickFirstVisible(page, labels, timeoutMs = 5000) {
@@ -198,7 +358,9 @@ async function waitForYoutubeStudioReady(page, timeoutMs = 90000) {
   while (Date.now() - startedAt < timeoutMs) {
     const bodyText = await page.locator('body').innerText().catch(() => '')
     if (readyTexts.some((pattern) => pattern.test(bodyText))) {
+      lastStudioReadyAt = Date.now()
       logInfo('YouTube Studio looks ready for Go live')
+      logTimeline('studio_ready', lastStudioReadyAt)
       return true
     }
 
@@ -212,21 +374,14 @@ async function waitForYoutubeStudioReady(page, timeoutMs = 90000) {
 async function ensureYoutubeGoLive(channelId, profileName) {
   if (!channelId) return false
 
-  const executablePath = findChromeExecutable()
-  if (!executablePath) {
-    throw new Error('Chrome or Edge executable not found')
-  }
-
   const studioUrl = `https://studio.youtube.com/channel/${channelId}/livestreaming/dashboard`
 
   let browser
   try {
-    launchChromeAutomationWindow(executablePath, studioUrl, profileName)
     const wsEndpoint = await waitForChromeDebugEndpoint()
     browser = await chromium.connectOverCDP(wsEndpoint)
     const context = browser.contexts()[0]
-    const page = context.pages().find((item) => String(item.url() || '').includes('studio.youtube.com'))
-      || await context.newPage()
+    const page = await getReusableAutomationPage(context)
     if (!String(page.url() || '').includes('studio.youtube.com')) {
       await page.goto(studioUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
     }
@@ -242,7 +397,9 @@ async function ensureYoutubeGoLive(channelId, profileName) {
       return false
     }
 
+    lastGoLiveClickedAt = Date.now()
     logInfo('YouTube Studio Go live clicked')
+    logTimeline('go_live_clicked', lastGoLiveClickedAt)
     await page.waitForTimeout(3000)
     return true
   } finally {
@@ -262,6 +419,43 @@ function getObsExecutableCandidates() {
 
 function findObsExecutable() {
   return getObsExecutableCandidates().find((candidate) => fs.existsSync(candidate)) || ''
+}
+
+function launchObsIfInstalled() {
+  const obsExecutable = findObsExecutable()
+  if (!obsExecutable) return false
+
+  try {
+    const child = spawn(obsExecutable, [], {
+      cwd: path.dirname(obsExecutable),
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    })
+    child.unref()
+    return true
+  } catch (error) {
+    logWarn(`Failed to launch OBS: ${error.message}`)
+    return false
+  }
+}
+
+async function connectObsWithRetry(obs, runtimeConfig, attempts = 1, delayMs = 0) {
+  let lastError = null
+
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      await obs.connect(runtimeConfig.obsUrl, runtimeConfig.obsPassword)
+      return true
+    } catch (error) {
+      lastError = error
+      if (index < attempts - 1 && delayMs > 0) {
+        await sleep(delayMs)
+      }
+    }
+  }
+
+  throw lastError || new Error('OBS connect failed')
 }
 
 function extractYoutubeChannelId(value) {
@@ -327,49 +521,43 @@ async function main() {
   ensureWindowsAutoStart()
 
   const runtimeConfig = resolveRuntimeConfig()
-  const app = initializeApp(firebaseConfig, `live-agent-${STREAM_KEY}`)
-  const db = getFirestore(app)
-  const auth = getAuth(app)
+  const apiClient = createLiveAgentApiClient(runtimeConfig)
   const obs = new OBSWebSocket()
-
-  const controlRef = doc(db, LIVE_STREAM_CONTROL_COLLECTION, STREAM_KEY)
-  const agentRef = doc(db, LIVE_STREAM_AGENT_COLLECTION, STREAM_KEY)
-  const settingsRef = doc(db, 'settings', 'main')
+  let liveSettings = {}
+  let agentStatus = {
+    agentLabel: runtimeConfig.agentLabel,
+    obsConnected: false,
+    streamActive: false,
+    activeStreamKey: '',
+    message: 'Starting',
+  }
 
   let obsConnected = false
   let reconnecting = false
   let processedRequestId = ''
   let heartbeatTimer = null
+  let pollTimer = null
   let executing = false
   let lastResolvedVideoId = ''
   let lastVideoSyncAt = 0
   let obsLaunchAttempted = false
   let currentVideoIdLocked = false
+  let lastStartRequestedAt = 0
+  let lastObsStartedAt = 0
+  let lastStudioReadyAt = 0
+  let lastGoLiveClickedAt = 0
+  let startRecoveryRunning = false
+  let pendingStartGoLivePromise = null
+  let connectObsPromise = null
 
   async function updateAgentStatus(extra = {}) {
-    await setDoc(agentRef, {
-      streamKey: STREAM_KEY,
+    agentStatus = {
+      ...agentStatus,
       agentLabel: runtimeConfig.agentLabel,
-      agentVersion: '1.2.0',
-      obsUrl: runtimeConfig.obsUrl,
       obsConnected,
-      lastSeenAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
       ...extra,
-    }, { merge: true })
-  }
-
-  async function setLiveState(patch) {
-    await setDoc(settingsRef, {
-      liveStreams: {
-        [STREAM_KEY]: patch,
-      },
-      updatedAt: serverTimestamp(),
-    }, { merge: true })
-  }
-
-  async function setLiveEnabled(enabled) {
-    await setLiveState({ enabled })
+    }
+    return apiClient.heartbeat(agentStatus)
   }
 
   async function setCurrentVideoId(currentVideoId) {
@@ -377,8 +565,21 @@ async function main() {
     lastResolvedVideoId = normalized
     lastVideoSyncAt = Date.now()
     currentVideoIdLocked = Boolean(normalized)
+    liveSettings[STREAM_KEY] = { ...(liveSettings[STREAM_KEY] || {}), currentVideoId: normalized }
     logInfo(`currentVideoId => ${normalized || '(empty)'}`)
-    await setLiveState({ currentVideoId: normalized })
+    await apiClient.updateVideo(STREAM_KEY, normalized)
+  }
+
+  async function getYoutubeTarget() {
+    const target = String(liveSettings[STREAM_KEY]?.youtubeUrl || '').trim()
+    logInfo(`youtubeUrl => ${target || '(empty)'}`)
+    return target
+  }
+
+  async function getYoutubeAutomationProfileName() {
+    const profileName = String(liveSettings[STREAM_KEY]?.youtubeChromeProfileName || '').trim() || 'Default'
+    logInfo(`youtubeChromeProfileName => ${profileName}`)
+    return profileName
   }
 
   async function getStreamActive() {
@@ -387,21 +588,45 @@ async function main() {
   }
 
   async function connectObs() {
-    if (obsConnected || reconnecting) return
-
-    reconnecting = true
-    try {
-      await obs.connect(runtimeConfig.obsUrl, runtimeConfig.obsPassword)
-      obsConnected = true
-      obsLaunchAttempted = false
-      await updateAgentStatus({ message: 'OBS connected' })
-    } catch (error) {
-      obsConnected = false
-      await updateAgentStatus({ message: `OBS connection failed: ${error.message}` })
-      throw error
-    } finally {
-      reconnecting = false
+    if (obsConnected) return
+    if (connectObsPromise) {
+      await connectObsPromise
+      return
     }
+
+    connectObsPromise = (async () => {
+      reconnecting = true
+      try {
+        await connectObsWithRetry(obs, runtimeConfig, 1, 0)
+        obsConnected = true
+        obsLaunchAttempted = false
+        await updateAgentStatus({ message: 'OBS connected' })
+      } catch (error) {
+        if (!obsLaunchAttempted) {
+          obsLaunchAttempted = true
+          const launched = launchObsIfInstalled()
+
+          if (launched) {
+            logWarn('OBS not connected, launching OBS automatically')
+            await updateAgentStatus({ message: 'Launching OBS automatically' })
+            await connectObsWithRetry(obs, runtimeConfig, 12, 5000)
+            obsConnected = true
+            obsLaunchAttempted = false
+            await updateAgentStatus({ message: 'OBS launched and connected' })
+            return
+          }
+        }
+
+        obsConnected = false
+        await updateAgentStatus({ message: `OBS connection failed: ${error.message}` })
+        throw error
+      } finally {
+        reconnecting = false
+        connectObsPromise = null
+      }
+    })()
+
+    await connectObsPromise
   }
 
   async function ensureObsReady() {
@@ -410,65 +635,129 @@ async function main() {
     }
   }
 
-  async function getYoutubeTarget() {
-    const snapshot = await getDoc(settingsRef)
-    const settings = snapshot.data() || {}
-    const stream = settings?.liveStreams?.[STREAM_KEY] || {}
-    const target = String(stream.youtubeUrl || '').trim()
-    logInfo(`youtubeUrl => ${target || '(empty)'}`)
-    return target
+  async function waitForObsStreamActive(timeoutMs = 10000) {
+    const startedAt = Date.now()
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const active = await getStreamActive().catch(() => false)
+      if (active) {
+        return true
+      }
+      await sleep(500)
+    }
+
+    return false
   }
 
-  async function getYoutubeAutomationProfileName() {
-    const snapshot = await getDoc(settingsRef)
-    const settings = snapshot.data() || {}
-    const stream = settings?.liveStreams?.[STREAM_KEY] || {}
-    const profileName = String(stream.youtubeChromeProfileName || '').trim() || 'Default'
-    logInfo(`youtubeChromeProfileName => ${profileName}`)
+  async function syncChromeAutomationEnvironment(channelId = '', { openDashboard = true } = {}) {
+    const profileName = await getYoutubeAutomationProfileName()
+    ensureChromeAutomationAutoStart(profileName)
+
+    try {
+      await ensureChromeAutomationBrowser(profileName)
+      if (channelId && openDashboard) {
+        await openYoutubeStudioDashboard(channelId)
+      }
+    } catch (error) {
+      logWarn(`Chrome automation browser setup failed: ${error.message}`)
+    }
+
     return profileName
   }
 
-async function fetchCurrentLiveVideoId(channelId) {
-  logInfo(`Requesting current live video from channel ${channelId}`)
-  let lastError = null
+  async function runStartRecovery(channelId, youtubeChromeProfileName) {
+    if (!channelId || startRecoveryRunning) return
 
-  for (let index = 0; index < YOUTUBE_API_KEYS.length; index += 1) {
-    const apiKey = YOUTUBE_API_KEYS[index]
-    const params = new URLSearchParams({
-      part: 'id,snippet',
-      channelId,
-      eventType: 'live',
-      type: 'video',
-      maxResults: '1',
-      key: apiKey,
-    })
+    startRecoveryRunning = true
+    try {
+      for (let index = 0; index < 20; index += 1) {
+        await sleep(3000)
 
-    logInfo(`Trying YouTube API key ${index + 1}/${YOUTUBE_API_KEYS.length}`)
+        const streamActive = await getStreamActive().catch(() => false)
+        if (!streamActive) {
+          logInfo('start recovery stopped because OBS stream is no longer active')
+          return
+        }
 
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`)
-    if (!response.ok) {
-      const body = await response.text().catch(() => '')
-      const message = `YouTube API request failed: ${response.status}${body ? ` ${body}` : ''}`
-      lastError = new Error(message)
+        if (lastObsStartedAt && Date.now() - lastObsStartedAt < INITIAL_LIVE_ID_DELAY_MS) {
+          logInfo('start recovery waiting for initial live-id delay window to elapse')
+          continue
+        }
 
-      if (response.status === 403 && body.includes('quotaExceeded') && index < YOUTUBE_API_KEYS.length - 1) {
-        logInfo(`API key ${index + 1} quota exceeded, rotating to next key`)
-        continue
+        if (lastResolvedVideoId) {
+          logInfo(`start recovery skipped because currentVideoId already resolved => ${lastResolvedVideoId}`)
+          return
+        }
+
+        logInfo(`start recovery pass ${index + 1}/20 => retrying YouTube Studio check and live sync`)
+        await ensureYoutubeGoLive(channelId, youtubeChromeProfileName).catch((error) => {
+          logWarn(`start recovery Go live retry failed: ${error.message}`)
+        })
+        await syncCurrentVideoId({ attempts: 1, delayMs: 0 }).catch((error) => {
+          logWarn(`start recovery sync failed: ${error.message}`)
+        })
+
+        if (lastResolvedVideoId) {
+          logInfo(`start recovery resolved currentVideoId => ${lastResolvedVideoId}`)
+          return
+        }
       }
-
-      throw lastError
+    } finally {
+      startRecoveryRunning = false
     }
-
-    const payload = await response.json()
-    const liveItem = (payload?.items || []).find((item) => item?.snippet?.liveBroadcastContent === 'live')
-    logInfo(`YouTube API items => ${(payload?.items || []).length}`)
-    return String(liveItem?.id?.videoId || '').trim()
   }
 
-  throw lastError || new Error('No YouTube API keys available')
+async function fetchCurrentLiveVideoId(apiClient, channelId) {
+  logInfo(`Requesting current live video from server for channel ${channelId}`)
+  return apiClient.resolveVideo(STREAM_KEY, channelId)
 }
 
-async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
+function isQuotaExceededPayload(payloadText) {
+  const rawText = String(payloadText || '')
+  if (!rawText) return false
+
+  const normalizedText = rawText.toLowerCase()
+  if (
+    normalizedText.includes('quotaexceeded') ||
+    normalizedText.includes('quota exceeded') ||
+    normalizedText.includes('dailylimitexceeded') ||
+    normalizedText.includes('rateLimitExceeded'.toLowerCase())
+  ) {
+    return true
+  }
+
+  try {
+    const parsed = JSON.parse(rawText)
+    const reasons = []
+
+    ;(function collectReasons(node) {
+      if (!node || typeof node !== 'object') return
+      if (Array.isArray(node)) {
+        node.forEach(collectReasons)
+        return
+      }
+
+      if (typeof node.reason === 'string') reasons.push(node.reason)
+      if (typeof node.message === 'string') reasons.push(node.message)
+      if (typeof node.domain === 'string') reasons.push(node.domain)
+      Object.values(node).forEach(collectReasons)
+    })(parsed)
+
+    return reasons.some((value) => {
+      const normalizedValue = String(value || '').toLowerCase()
+      return (
+        normalizedValue.includes('quotaexceeded') ||
+        normalizedValue.includes('quota exceeded') ||
+        normalizedValue.includes('dailylimitexceeded') ||
+        normalizedValue.includes('ratelimitexceeded')
+      )
+    })
+  } catch {
+    return false
+  }
+}
+
+async function fetchCurrentLiveVideoIdFromChannelPage(channelId, { allowAggressiveYoutubeiFallback = false } = {}) {
   const url = `https://www.youtube.com/channel/${channelId}/live`
   logInfo(`Falling back to channel page ${url}`)
 
@@ -591,7 +880,48 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
       length: String(videoRenderer?.lengthText?.simpleText || ''),
       overlays: overlayStyles,
       badges: badgeLabels,
+      recentMinutes: parseRecentMinutes(videoRenderer?.publishedTimeText?.simpleText || ''),
     }
+  }
+
+  function chooseAggressiveYoutubeiCandidate(candidates) {
+    const eligibleCandidates = candidates
+      .filter((candidate) => candidate.videoId)
+      .filter((candidate) => candidate.overlays.includes('NOW_PLAYING'))
+      .filter((candidate) => candidate.recentMinutes <= 40)
+      .filter((candidate) => !candidate.length || /^0:/.test(candidate.length) || /^1:/.test(candidate.length))
+      .filter((candidate) => {
+        const title = String(candidate.title || '')
+        return title.includes('실시간 스트림') || title.toLowerCase().includes('live')
+      })
+      .sort((left, right) => left.recentMinutes - right.recentMinutes)
+
+    return eligibleCandidates[0]?.videoId || ''
+  }
+
+  function choosePreferredYoutubeiLiveCandidate(candidates) {
+    const eligibleCandidates = candidates
+      .filter((candidate) => candidate.videoId)
+      .filter((candidate) => candidate.overlays.includes('NOW_PLAYING'))
+      .sort((left, right) => {
+        const leftRecent = Number.isFinite(left.recentMinutes) ? left.recentMinutes : Number.POSITIVE_INFINITY
+        const rightRecent = Number.isFinite(right.recentMinutes) ? right.recentMinutes : Number.POSITIVE_INFINITY
+        if (leftRecent !== rightRecent) return leftRecent - rightRecent
+
+        const leftLength = String(left.length || '')
+        const rightLength = String(right.length || '')
+        const leftHasLength = Boolean(leftLength)
+        const rightHasLength = Boolean(rightLength)
+        if (leftHasLength !== rightHasLength) return leftHasLength ? -1 : 1
+
+        const leftViewCount = String(left.viewCount || '')
+        const rightViewCount = String(right.viewCount || '')
+        if (leftViewCount !== rightViewCount) return leftViewCount.localeCompare(rightViewCount)
+
+        return leftLength.localeCompare(rightLength)
+      })
+
+    return eligibleCandidates[0]?.videoId || ''
   }
 
   function findLiveVideoId(node) {
@@ -652,7 +982,7 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
     const apiKey = extractInnertubeApiKey(html)
     const visitorData = extractVisitorData(html)
     const params = extractBrowseParams(html)
-    if (isLive && apiKey && params) {
+    if ((isLive || allowAggressiveYoutubeiFallback) && apiKey && params) {
       logInfo('Trying youtubei browse fallback')
       const browseResponse = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
@@ -691,10 +1021,14 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
           Object.values(node).forEach(collectVideoRenderers)
         })(browseJson)
         logInfo(`youtubei browse candidates => ${JSON.stringify(candidates.slice(0, 8))}`)
-        const liveVideoId = findLiveVideoId(browseJson)
+        const liveVideoId = choosePreferredYoutubeiLiveCandidate(candidates) || findLiveVideoId(browseJson)
         if (liveVideoId) {
           logInfo(`Channel page resolvedVideoId (youtubei browse) => ${liveVideoId}`)
           return liveVideoId
+        }
+
+        if (allowAggressiveYoutubeiFallback) {
+          logInfo('Aggressive youtubei fallback enabled, but recent recorded-video fallback is disabled')
         }
       } else {
         logInfo(`youtubei browse failed: ${browseResponse.status}`)
@@ -736,14 +1070,16 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
         let nextVideoId = ''
 
         try {
-          nextVideoId = await fetchCurrentLiveVideoId(channelId)
+          nextVideoId = await fetchCurrentLiveVideoId(apiClient, channelId)
           if (!nextVideoId) {
             logInfo(`attempt ${index + 1}/${attempts} api returned empty, falling back to channel page`)
             nextVideoId = await fetchCurrentLiveVideoIdFromChannelPage(channelId)
           }
         } catch (apiError) {
           logInfo(`attempt ${index + 1}/${attempts} api failed => ${apiError.message}`)
-          nextVideoId = await fetchCurrentLiveVideoIdFromChannelPage(channelId)
+          const allowAggressiveYoutubeiFallback = isQuotaExceededPayload(apiError?.message || '')
+          logInfo(`attempt ${index + 1}/${attempts} aggressiveYoutubeiFallback => ${allowAggressiveYoutubeiFallback}`)
+          nextVideoId = await fetchCurrentLiveVideoIdFromChannelPage(channelId, { allowAggressiveYoutubeiFallback })
         }
 
         logInfo(`attempt ${index + 1}/${attempts} resolvedVideoId => ${nextVideoId || '(empty)'}`)
@@ -767,8 +1103,7 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
     return ''
   }
 
-  async function handleCommandSnapshot(snapshot) {
-    const control = snapshot.data()
+  async function handleCommand(control) {
     if (!control) {
       logWarn('control snapshot ignored => empty')
       return
@@ -788,7 +1123,7 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
         if (executing) return
         clearInterval(checkAfterExecution)
         if (pendingControl.requestId !== processedRequestId) {
-          handleCommandSnapshot(snapshot).catch(writeFatalLog)
+          handleCommand(pendingControl).catch(writeFatalLog)
         }
       }, 500)
       return
@@ -796,26 +1131,51 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
 
     executing = true
     processedRequestId = control.requestId
-    logInfo(`command received => ${control.desiredState} requestId=${control.requestId}`)
+    const requestedBy = String(control.requestedBy || '').trim() || '(unknown)'
+    const requestedAt = control.requestedAt?.toDate
+      ? control.requestedAt.toDate().toISOString()
+      : String(control.requestedAt || '').trim() || '(unknown)'
+    logInfo(`command received => ${control.desiredState} requestId=${control.requestId} requestedBy=${requestedBy} requestedAt=${requestedAt}`)
 
     try {
       await ensureObsReady()
 
       if (control.desiredState === 'start') {
+        lastStartRequestedAt = Date.now()
+        globalLastStartRequestedAt = lastStartRequestedAt
+        lastObsStartedAt = 0
+        lastStudioReadyAt = 0
+        lastGoLiveClickedAt = 0
+        startRecoveryRunning = false
+        logTimeline('start_command_received', lastStartRequestedAt)
         const active = await getStreamActive()
         currentVideoIdLocked = false
         await setCurrentVideoId('')
         if (!active) {
           await obs.call('StartStream')
+          const streamStarted = await waitForObsStreamActive(10000)
+          if (!streamStarted) {
+            throw new Error('OBS StartStream did not activate the stream')
+          }
+          lastObsStartedAt = Date.now()
+          logTimeline('obs_start_called', lastObsStartedAt)
+          logInfo('Waiting 12 seconds after OBS start before YouTube Studio Go live')
+          await sleep(12000)
         }
 
         const youtubeTarget = await getYoutubeTarget()
         const channelId = extractYoutubeChannelId(youtubeTarget)
-        const youtubeChromeProfileName = await getYoutubeAutomationProfileName()
-        ensureYoutubeGoLive(channelId, youtubeChromeProfileName).catch((error) => {
+        const youtubeChromeProfileName = await syncChromeAutomationEnvironment(channelId, { openDashboard: false })
+        pendingStartGoLivePromise = ensureYoutubeGoLive(channelId, youtubeChromeProfileName).catch((error) => {
           logWarn(`YouTube Studio automation failed: ${error.message}`)
+        }).finally(() => {
+          pendingStartGoLivePromise = null
+        })
+        runStartRecovery(channelId, youtubeChromeProfileName).catch((error) => {
+          logWarn(`start recovery failed: ${error.message}`)
         })
       } else if (control.desiredState === 'stop') {
+        startRecoveryRunning = false
         const active = await getStreamActive()
         if (active) {
           await obs.call('StopStream')
@@ -826,50 +1186,51 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
             if (!stillActive) break
           }
         }
+        currentVideoIdLocked = false
+        await setCurrentVideoId('')
       } else {
         throw new Error(`Unsupported desiredState: ${control.desiredState}`)
       }
 
       const streamActive = await getStreamActive()
-      await setLiveEnabled(streamActive)
 
       if (streamActive) {
-        await syncCurrentVideoId({ attempts: 1 })
+        if (pendingStartGoLivePromise) {
+          await pendingStartGoLivePromise
+        }
+        const initialLiveIdDelayMs = Math.max(0, INITIAL_LIVE_ID_DELAY_MS - (lastObsStartedAt ? (Date.now() - lastObsStartedAt) : 0))
+        if (initialLiveIdDelayMs > 0) {
+          logInfo(`Waiting ${initialLiveIdDelayMs}ms after OBS start before resolving live video ID`)
+          await sleep(initialLiveIdDelayMs)
+        }
+        await syncCurrentVideoId({ attempts: 6, delayMs: 5000 })
       } else {
         currentVideoIdLocked = false
+        await setCurrentVideoId('')
       }
 
-      await setDoc(controlRef, {
-        status: 'completed',
-        processedAt: serverTimestamp(),
-        processedRequestId: control.requestId,
-        processedBy: runtimeConfig.agentLabel,
-        lastAppliedState: streamActive ? 'start' : 'stop',
-        error: '',
-        message: streamActive ? 'OBS stream started' : 'OBS stream stopped',
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      await apiClient.complete(control.requestId, true, {
+        streamKey: STREAM_KEY,
+        streamActive,
+        message: streamActive ? 'Streaming started' : 'Streaming stopped',
+      })
       await updateAgentStatus({
         streamActive,
         lastHandledRequestId: control.requestId,
         lastCommandStatus: 'completed',
-        lastCommandAt: serverTimestamp(),
+        lastCommandAt: new Date().toISOString(),
         message: streamActive ? 'Streaming' : 'Idle',
       })
     } catch (error) {
-      await setDoc(controlRef, {
-        status: 'error',
-        processedAt: serverTimestamp(),
-        processedRequestId: control.requestId,
-        processedBy: runtimeConfig.agentLabel,
+      await apiClient.complete(control.requestId, false, {
+        streamKey: STREAM_KEY,
         error: error.message,
         message: error.message,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      })
       await updateAgentStatus({
         lastHandledRequestId: control.requestId,
         lastCommandStatus: 'error',
-        lastCommandAt: serverTimestamp(),
+        lastCommandAt: new Date().toISOString(),
         message: error.message,
       })
       throw error
@@ -887,9 +1248,12 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
       const streamActive = await getStreamActive()
       if (!streamActive) {
         currentVideoIdLocked = false
+        if (lastResolvedVideoId) {
+          await setCurrentVideoId('')
+        }
       }
 
-      if (streamActive && (!lastResolvedVideoId || Date.now() - lastVideoSyncAt > 15000)) {
+      if (streamActive && !currentVideoIdLocked) {
         await syncCurrentVideoId({ attempts: 1 })
       }
 
@@ -906,6 +1270,13 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
     }
   }
 
+  async function pollCommands() {
+    if (executing) return
+    const payload = await apiClient.poll(agentStatus)
+    liveSettings = payload.settings || liveSettings
+    if (payload.command) await handleCommand(payload.command)
+  }
+
   obs.on('ConnectionClosed', async () => {
     obsConnected = false
     await updateAgentStatus({ streamActive: false, message: 'OBS connection closed' })
@@ -916,21 +1287,14 @@ async function fetchCurrentLiveVideoIdFromChannelPage(channelId) {
     await updateAgentStatus({ message: 'OBS identified' })
   })
 
-  await signInWithEmailAndPassword(auth, runtimeConfig.adminEmail, runtimeConfig.adminPassword)
-
-  const existingControl = await getDoc(controlRef)
-  processedRequestId = (existingControl.data() || {}).processedRequestId || ''
-
+  await pollCommands()
   await heartbeat()
   heartbeatTimer = setInterval(heartbeat, 15000)
-
-  onSnapshot(controlRef, (snapshot) => {
-    logInfo('control snapshot received')
-    handleCommandSnapshot(snapshot).catch(writeFatalLog)
-  })
+  pollTimer = setInterval(() => pollCommands().catch(writeFatalLog), 2000)
 
   process.on('SIGINT', async () => {
     if (heartbeatTimer) clearInterval(heartbeatTimer)
+    if (pollTimer) clearInterval(pollTimer)
     try {
       await updateAgentStatus({ message: 'Agent stopped', obsConnected: false })
     } finally {
