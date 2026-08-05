@@ -74,7 +74,8 @@ function public_live_payload(PDO $pdo, string $streamKey): array
     $setting = read_live_setting($pdo, $streamKey);
     $setting['_accessRequired'] = $setting['accessPassword'] !== '' || $setting['accessKey'] !== '';
     $authorized = has_live_access($streamKey);
-    $agent = $authorized ? read_live_agent_state($pdo, $streamKey) : null;
+    $canView = can_view_live_setting($setting, $authorized);
+    $agent = $canView ? read_live_agent_state($pdo, $streamKey) : null;
     if (is_array($agent)) {
         unset($agent['agentKey'], $agent['message']);
     }
@@ -82,7 +83,7 @@ function public_live_payload(PDO $pdo, string $streamKey): array
         'streamKey' => $streamKey,
         'setting' => public_live_setting($setting, $authorized),
         'agent' => $agent,
-        'command' => $authorized ? read_latest_live_command($pdo, $streamKey) : null,
+        'command' => $canView ? read_latest_live_command($pdo, $streamKey) : null,
     );
 }
 

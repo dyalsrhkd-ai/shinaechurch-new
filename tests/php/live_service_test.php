@@ -49,4 +49,8 @@ check_live(agent_can_manage($agent, 'youth'), 'combined agent must manage youth'
 check_live(agent_can_manage($agent, 'young'), 'combined agent must manage young');
 check_live(!agent_can_manage($agent, 'main'), 'combined agent must not manage main');
 
+check_live(can_view_live_setting(array('_accessRequired' => false), false), 'public stream must be viewable without a session');
+check_live(!can_view_live_setting(array('_accessRequired' => true), false), 'protected stream must require a session');
+check_live(can_view_live_setting(array('_accessRequired' => true), true), 'unlocked protected stream must be viewable');
+
 echo "PHP live service OK\n";

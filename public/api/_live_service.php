@@ -203,6 +203,11 @@ function public_live_setting(array $setting, bool $authorized): array
     return $setting;
 }
 
+function can_view_live_setting(array $setting, bool $authorized): bool
+{
+    return $authorized || empty($setting['_accessRequired']);
+}
+
 function live_request_key(): string
 {
     $bytes = random_bytes(16);
