@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { getAdminLiveState } from '../../api/liveApi'
-import { auth, db } from '../../firebase'
+import { auth } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAdminRouteLock } from '../../hooks/useAdminRouteLock'
@@ -160,39 +159,15 @@ export default function AdminLayout({ children }) {
   }, [location.pathname])
 
   useEffect(() => {
-    const writeActivityLog = async (detail = {}) => {
-      if (!user) return
-      try {
-        await addDoc(collection(db, 'admin_activity_logs'), {
-          createdAt: serverTimestamp(),
-          uid: user.uid,
-          userEmail: user.email || '',
-          path: detail.path || location.pathname,
-          routeLabel: detail.routeLabel || routeLabel,
-          action: detail.action || 'save',
-          target: detail.target || routeLabel,
-          description: detail.message || detail.description || `${routeLabel} 저장`,
-        })
-      } catch (error) {
-        console.error(error)
-      }
-    }
-
-    const markSaved = (event) => {
+    const markSaved = () => {
       setHasUnsavedChanges(false)
-      writeActivityLog(event?.detail || {})
-    }
-    const handleActivity = (event) => {
-      writeActivityLog(event?.detail || {})
     }
 
     window.addEventListener('admin:changes-saved', markSaved)
-    window.addEventListener('admin:activity', handleActivity)
     return () => {
       window.removeEventListener('admin:changes-saved', markSaved)
-      window.removeEventListener('admin:activity', handleActivity)
     }
-  }, [location.pathname, routeLabel, user])
+  }, [])
 
   useEffect(() => {
     if (!shouldWarnUnsaved) return undefined
