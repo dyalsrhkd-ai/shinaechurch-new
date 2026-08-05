@@ -13,7 +13,11 @@ export function clearCsrfToken() {
   csrfToken = ''
 }
 
-function apiUrl(path) {
+export function getCsrfToken() {
+  return csrfToken
+}
+
+export function resolveApiUrl(path) {
   return /^https?:\/\//i.test(path) ? path : `${apiBaseUrl}${path}`
 }
 
@@ -34,7 +38,7 @@ export async function apiRequest(path, { method = 'GET', body, headers = {} } = 
     requestHeaders['X-CSRF-Token'] = csrfToken
   }
 
-  const response = await fetch(apiUrl(path), options)
+  const response = await fetch(resolveApiUrl(path), options)
   const text = await response.text()
   let payload
   try {
