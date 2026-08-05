@@ -20,7 +20,7 @@
 
 ---
 
-### Task 1: PHP content service and endpoint
+### Task 1: PHP content service and endpoint (완료)
 
 **Files:**
 - Create: `public/api/_content_service.php`
@@ -39,7 +39,7 @@
 - [ ] Run PHP tests and `-l` checks for both files.
 - [ ] Commit only the content service, endpoint, and test.
 
-### Task 2: React content API contract
+### Task 2: React content API contract (완료)
 
 **Files:**
 - Create: `src/api/contentApi.js`
@@ -60,7 +60,7 @@
 - [ ] Run the contract test and targeted ESLint.
 - [ ] Commit the content client and test.
 
-### Task 3: PHP media endpoint and browser client
+### Task 3: PHP media endpoint and browser client (완료)
 
 **Files:**
 - Create: `public/api/_media_service.php`
@@ -83,7 +83,7 @@
 - [ ] Run PHP tests, client tests, lint, and build.
 - [ ] Commit media endpoint and client files.
 
-### Task 4: Migrate public document reads
+### Task 4: Migrate public document reads (완료)
 
 **Files:**
 - Modify: `src/contexts/SettingsContext.jsx`
@@ -116,7 +116,7 @@
 - [ ] Run the source-contract test, targeted ESLint, and build.
 - [ ] Commit only these public-read files and their test.
 
-### Task 5: Migrate single-document administrator screens
+### Task 5: Migrate single-document administrator screens (완료)
 
 **Files:**
 - Modify: `src/pages/admin/content/PageContentManager.jsx`
@@ -134,7 +134,7 @@
 - [ ] Run source-contract test, targeted ESLint, and build.
 - [ ] Commit only this batch.
 
-### Task 6: Migrate collection administrator screens
+### Task 6: Migrate collection administrator screens (완료)
 
 **Files:**
 - Modify: `src/pages/admin/bulletins/BulletinManager.jsx`
@@ -160,7 +160,7 @@
 - [ ] Run source-contract test, targeted ESLint, and build.
 - [ ] Commit only this batch.
 
-### Task 7: Export/import tooling and verification
+### Task 7: Export/import tooling and verification (코드 완료, 실제 데이터 이관 대기)
 
 **Files:**
 - Create: `scripts/export-firestore-content.mjs`

@@ -96,3 +96,12 @@ Firebase Storage 업로드를 사용하는 관리자 화면 14개와 삭제를 �
 - ESLint, 기존 테스트, production build 통과
 - 카페24 배포 후 새 업로드 파일이 `/uploads`에 생성되고 새로고침 후에도 표시되는지 확인
 
+## 구현 현황 (2026-08-05)
+
+- PHP 업로드·삭제 API와 React 공통 미디어 클라이언트 구현 완료
+- 콘텐츠 관리자 화면의 Firebase Storage 업로드·삭제 호출 교체 완료
+- 기존 Firebase 경로는 카페24 경로가 아니면 삭제 요청을 보내지 않도록 보호
+- Firebase Storage가 HTTP 402로 막힌 동안에는 Storage 전용 원본을 자동 복사할 수 없음
+- 원본 확보, `/uploads` 업로드, 문서 URL 교체, 공개 화면 전수 확인 후에만 Firebase Storage를 종료
+
+실제 파일 이전 순서는 `docs/cafe24-content-migration.md`를 따른다.

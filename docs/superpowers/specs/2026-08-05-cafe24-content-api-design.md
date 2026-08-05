@@ -136,3 +136,12 @@ Firestore SDK를 흉내 내는 범용 호환 계층은 만들지 않는다. 화�
 - Redis나 메시지 큐
 - Firebase와 카페24의 장기 이중 운영
 
+## 구현 현황 (2026-08-05)
+
+- PHP `content_documents` CRUD와 React 공통 클라이언트 구현 완료
+- 일반 공개 콘텐츠 조회 및 단일·목록 관리자 화면의 Firestore CRUD 교체 완료
+- 읽기 전용 Firestore JSON export와 UTF-8 Base64 기반 MySQL UPSERT SQL 생성 도구 추가
+- 실제 데이터 export/import는 Firebase 관리자 인증과 카페24 DB 준비 후 수행
+- 인증, 방문 통계, 화면 잠금, 라이브 방송 상태는 별도 운영 데이터이므로 일반 콘텐츠와 분리하여 이전
+
+실행·검증 절차는 `docs/cafe24-content-migration.md`를 기준으로 한다.
