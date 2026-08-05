@@ -53,4 +53,8 @@ check_live(can_view_live_setting(array('_accessRequired' => false), false), 'pub
 check_live(!can_view_live_setting(array('_accessRequired' => true), false), 'protected stream must require a session');
 check_live(can_view_live_setting(array('_accessRequired' => true), true), 'unlocked protected stream must be viewable');
 
+$combinedStatus = array('streamActive' => true, 'activeStreamKey' => 'young');
+check_live(live_status_for_stream($combinedStatus, 'young')['streamActive'], 'active combined stream must remain active');
+check_live(!live_status_for_stream($combinedStatus, 'youth')['streamActive'], 'inactive combined stream must not appear active');
+
 echo "PHP live service OK\n";

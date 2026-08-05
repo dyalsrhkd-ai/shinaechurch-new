@@ -31,7 +31,7 @@ function read_live_agent_state(PDO $pdo, string $streamKey): ?array
     foreach ($rows as $row) {
         if (!agent_can_manage($row, $streamKey)) continue;
         $status = json_decode((string) $row['status_json'], true);
-        $status = normalize_live_status(is_array($status) ? $status : array());
+        $status = live_status_for_stream(is_array($status) ? $status : array(), $streamKey);
         $status['agentKey'] = (string) $row['agent_key'];
         $status['agentLabel'] = $status['agentLabel'] !== '' ? $status['agentLabel'] : (string) $row['display_name'];
         $status['status'] = (string) $row['status_key'];

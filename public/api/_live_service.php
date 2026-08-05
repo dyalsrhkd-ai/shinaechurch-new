@@ -50,6 +50,15 @@ function normalize_live_status(array $status): array
     );
 }
 
+function live_status_for_stream(array $status, string $streamKey): array
+{
+    $normalized = normalize_live_status($status);
+    if ($normalized['activeStreamKey'] !== '' && $normalized['activeStreamKey'] !== $streamKey) {
+        $normalized['streamActive'] = false;
+    }
+    return $normalized;
+}
+
 function agent_managed_stream_keys(array $agent): array
 {
     $value = isset($agent['managed_keys_json']) ? $agent['managed_keys_json'] : array();
