@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
-import { db } from '../../../firebase'
+import {
+  getAdminLiveState,
+  requestLiveCommand,
+  saveLiveSetting,
+} from '../../../api/liveApi'
 import {
   DEFAULT_LIVE_STREAMS,
   LIVE_STREAM_CATEGORY_MAP,
@@ -11,11 +14,6 @@ import {
   hasLiveStreamTarget,
   normalizeLiveStreams,
 } from '../../../utils/liveStream'
-import {
-  LIVE_STREAM_AGENT_COLLECTION,
-  LIVE_STREAM_CONTROL_COLLECTION,
-  createLiveControlRequestId,
-} from '../../../utils/liveControl'
 
 const stickyBarStyle = {
   position: 'sticky',
@@ -87,7 +85,7 @@ function formatStatusTime(value) {
 }
 
 function isRecentPending(controlState) {
-  if (controlState?.status !== 'pending') return false
+  if (!['pending', 'processing'].includes(controlState?.status)) return false
   const requestedAt = controlState?.requestedAt?.toDate
     ? controlState.requestedAt.toDate()
     : new Date(controlState?.requestedAt || 0)
@@ -273,46 +271,37 @@ export default function LiveStreamManager() {
   const activeCategory = LIVE_STREAM_CATEGORY_MAP[streamKey] || LIVE_STREAM_CATEGORY_MAP.main
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      doc(db, 'settings', 'main'),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setDraftStreams(DEFAULT_LIVE_STREAMS)
-          setSavedStreams(DEFAULT_LIVE_STREAMS)
-          setLoading(false)
-          return
-        }
+    let active = true
+    let firstLoad = true
 
-        const data = snapshot.data()
-        const streams = normalizeLiveStreams(data.liveStreams, data.liveStreamTest, data.liveAccessPassword)
-        setDraftStreams(streams)
-        setSavedStreams(streams)
-        setLoading(false)
-      },
-      (error) => {
+    const loadState = async () => {
+      try {
+        const live = await getAdminLiveState(activeCategory.key)
+        if (!active) return
+        const stream = normalizeLiveStreams({ [activeCategory.key]: live.setting })[activeCategory.key]
+        setSavedStreams((current) => ({ ...current, [activeCategory.key]: stream }))
+        setDraftStreams((current) => ({
+          ...current,
+          [activeCategory.key]: firstLoad
+            ? stream
+            : { ...current[activeCategory.key], enabled: stream.enabled, currentVideoId: stream.currentVideoId },
+        }))
+        setControlState(live.command || null)
+        setAgentState(live.agent || null)
+      } catch (error) {
         console.error(error)
-        setLoading(false)
-      },
-    )
+      } finally {
+        if (active) setLoading(false)
+        firstLoad = false
+      }
+    }
 
-    return unsubscribe
-  }, [])
-
-  useEffect(() => {
-    const controlUnsubscribe = onSnapshot(
-      doc(db, LIVE_STREAM_CONTROL_COLLECTION, activeCategory.key),
-      (snapshot) => setControlState(snapshot.exists() ? snapshot.data() : null),
-      console.error,
-    )
-    const agentUnsubscribe = onSnapshot(
-      doc(db, LIVE_STREAM_AGENT_COLLECTION, activeCategory.key),
-      (snapshot) => setAgentState(snapshot.exists() ? snapshot.data() : null),
-      console.error,
-    )
-
+    setLoading(true)
+    loadState()
+    const timer = setInterval(loadState, 2000)
     return () => {
-      controlUnsubscribe()
-      agentUnsubscribe()
+      active = false
+      clearInterval(timer)
     }
   }, [activeCategory.key])
 
@@ -346,11 +335,8 @@ export default function LiveStreamManager() {
         },
       }
 
-      await setDoc(doc(db, 'settings', 'main'), {
-        liveStreams: nextStreams,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-
+      const saved = await saveLiveSetting(targetKey, nextStreams[targetKey])
+      nextStreams[targetKey] = normalizeLiveStreams({ [targetKey]: saved })[targetKey]
       setSavedStreams(nextStreams)
       alert(`${LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브'} 전용 링크 키를 생성했습니다.`)
     } catch (error) {
@@ -391,11 +377,8 @@ export default function LiveStreamManager() {
         },
       }
 
-      await setDoc(doc(db, 'settings', 'main'), {
-        liveStreams: nextStreams,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-
+      const saved = await saveLiveSetting(targetKey, nextStreams[targetKey])
+      nextStreams[targetKey] = normalizeLiveStreams({ [targetKey]: saved })[targetKey]
       setSavedStreams(nextStreams)
       setDraftStreams(nextStreams)
       alert(`${LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브'} 설정을 저장했습니다.`)
@@ -414,20 +397,26 @@ export default function LiveStreamManager() {
 
     setTogglingStreamKey(targetKey)
     try {
-      await setDoc(doc(db, LIVE_STREAM_CONTROL_COLLECTION, targetKey), {
-        streamKey: targetKey,
-        requestId: createLiveControlRequestId(),
-        desiredState: enabled ? 'start' : 'stop',
-        status: 'pending',
-        requestedAt: serverTimestamp(),
-        requestedBy: 'admin',
-        processedAt: null,
-        processedRequestId: '',
-        processedBy: '',
-        error: '',
-        message: enabled ? '송출 시작 요청을 전송했습니다.' : '송출 종료 요청을 전송했습니다.',
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      const nextStreams = {
+        ...savedStreams,
+        [targetKey]: {
+          ...savedStreams[targetKey],
+          currentVideoId: '',
+        },
+      }
+
+      setSavedStreams(nextStreams)
+      setDraftStreams((current) => ({
+        ...current,
+        [targetKey]: {
+          ...current[targetKey],
+          currentVideoId: '',
+        },
+      }))
+
+      await saveLiveSetting(targetKey, nextStreams[targetKey])
+      const command = await requestLiveCommand(targetKey, enabled ? 'start' : 'stop')
+      setControlState(command)
 
       alert(`${LIVE_STREAM_CATEGORY_MAP[targetKey]?.label || '라이브'} ${enabled ? '송출 시작' : '송출 종료'} 요청을 보냈습니다.`)
     } catch (error) {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { getAdminLiveState } from '../../api/liveApi'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -9,6 +10,7 @@ import { useAdminRouteLock } from '../../hooks/useAdminRouteLock'
 import { MENU_GROUPS } from './menuItems'
 import { subscribeVisitorSummary } from '../../utils/visitorAnalytics'
 import { releaseAdminUserSession, setAdminLogoutReason } from '../../utils/adminSession'
+import { LIVE_STREAM_CATEGORIES } from '../../utils/liveStream'
 
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000
 const HANGUL_BASE = 0xac00
@@ -89,6 +91,8 @@ export default function AdminLayout({ children }) {
     yearVisits: 0,
     totalVisits: 0,
   })
+  const [liveAgentStates, setLiveAgentStates] = useState({})
+  const hasActiveLiveStream = LIVE_STREAM_CATEGORIES.some((category) => Boolean(liveAgentStates?.[category.key]?.streamActive))
   const routeLock = useAdminRouteLock({ pathname: location.pathname, user })
   const shouldWarnUnsaved = Boolean(
     hasUnsavedChanges &&
@@ -266,6 +270,27 @@ export default function AdminLayout({ children }) {
   }, [routeLock.isChecking, routeLock.isLockedByOther, location.pathname])
 
   useEffect(() => {
+    let active = true
+    const loadLiveAgents = async () => {
+      try {
+        const states = await Promise.all(
+          LIVE_STREAM_CATEGORIES.map(async (category) => [category.key, (await getAdminLiveState(category.key)).agent || null]),
+        )
+        if (active) setLiveAgentStates(Object.fromEntries(states))
+      } catch (error) {
+        console.error(error)
+      }
+    }
+
+    loadLiveAgents()
+    const timer = setInterval(loadLiveAgents, 5000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!user) return undefined
 
     const clearSessionTimer = () => {
@@ -302,7 +327,13 @@ export default function AdminLayout({ children }) {
     }
 
     expiredRef.current = false
-    resetSessionTimer()
+    if (hasActiveLiveStream) {
+      clearSessionTimer()
+      deadlineRef.current = 0
+      setRemainingMs(SESSION_TIMEOUT_MS)
+    } else {
+      resetSessionTimer()
+    }
 
     const countdownId = setInterval(() => {
       if (!deadlineRef.current || expiredRef.current) return
@@ -321,7 +352,7 @@ export default function AdminLayout({ children }) {
         window.removeEventListener(eventName, resetSessionTimer)
       })
     }
-  }, [navigate, user])
+  }, [hasActiveLiveStream, navigate, user])
 
   useEffect(() => {
     if (!user) return undefined
@@ -513,8 +544,8 @@ export default function AdminLayout({ children }) {
             ) : null}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', color: '#6b7280', fontWeight: 600 }}>
               <span style={{ color: '#9ca3af' }}>세션 남은 시간</span>
-              <span style={{ padding: '6px 10px', borderRadius: '999px', background: remainingMs <= 60 * 1000 ? '#fef2f2' : '#eff6ff', color: remainingMs <= 60 * 1000 ? '#dc2626' : '#1d4ed8', fontFamily: 'monospace', fontWeight: 800 }}>
-                {formatRemainingTime(remainingMs)}
+              <span style={{ padding: '6px 10px', borderRadius: '999px', background: hasActiveLiveStream ? '#ecfdf5' : remainingMs <= 60 * 1000 ? '#fef2f2' : '#eff6ff', color: hasActiveLiveStream ? '#047857' : remainingMs <= 60 * 1000 ? '#dc2626' : '#1d4ed8', fontFamily: 'monospace', fontWeight: 800 }}>
+                {hasActiveLiveStream ? '송출 중' : formatRemainingTime(remainingMs)}
               </span>
             </div>
             <div style={{ width: '1px', alignSelf: 'stretch', background: '#e5e7eb' }} />

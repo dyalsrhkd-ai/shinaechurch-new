@@ -51,6 +51,10 @@ const groups = {
     'src/pages/admin/staff/StaffManager.jsx',
     'src/pages/admin/videos/VideoManager.jsx',
   ],
+  live: [
+    'src/pages/admin/settings/LiveStreamManager.jsx',
+    'src/pages/media/Live.jsx',
+  ],
 }
 
 const groupName = process.argv[2] || 'public'
