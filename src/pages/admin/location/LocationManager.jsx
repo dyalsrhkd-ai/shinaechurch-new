@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../../firebase'
+import { getContentDocument, upsertContentDocument } from '../../../api/contentApi'
 
 const stickyBarStyle = {
   position: 'sticky',
@@ -32,9 +31,8 @@ export default function LocationManager() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const snap = await getDoc(doc(db, 'location', 'main'))
-      if (snap.exists()) {
-        const d = snap.data()
+      const d = await getContentDocument('location', 'main')
+      if (d) {
         setMapEmbedUrl(d.mapEmbedUrl || '')
         setKakaoMapUrl(d.kakaoMapUrl || '')
         setNaverMapUrl(d.naverMapUrl || '')
@@ -49,15 +47,14 @@ export default function LocationManager() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await setDoc(doc(db, 'location', 'main'), {
+      await upsertContentDocument('location', 'main', {
         mapEmbedUrl: mapEmbedUrl.trim(),
         kakaoMapUrl: kakaoMapUrl.trim(),
         naverMapUrl: naverMapUrl.trim(),
         transportSections,
-        updatedAt: serverTimestamp(),
       })
       await fetchData()
-      window.dispatchEvent(new Event('admin:changes-saved'))
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '오시는 길 정보를 저장했습니다.' } }))
       alert('저장되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setSaving(false)

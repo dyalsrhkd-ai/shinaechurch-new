@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { getContentDocument, upsertContentDocument } from '../../../api/contentApi'
+import { uploadMedia } from '../../../utils/mediaStorage'
 import { validateImageFile } from '../../../utils/fileValidation'
 import MenPageContent from '../../../components/content/MenPageContent'
 import DeptPageContent from '../../../components/content/DeptPageContent'
@@ -9,7 +8,6 @@ import SchoolPageContent from '../../../components/content/SchoolPageContent'
 import {
   blockTemplates,
   createBlock,
-  createDefaultDeptGroups,
   createDefaultPageState,
   deptGroupColorPalette,
   normalizePageState,
@@ -197,9 +195,9 @@ export default function PageContentManager({ title, description, pages }) {
     async function fetchContent() {
       setLoading(true)
       try {
-        const snapshot = await getDoc(doc(db, 'pageContents', selectedId))
+        const document = await getContentDocument('pageContents', selectedId)
         if (!active) return
-        setPageState(normalizePageState(selectedPage, snapshot.exists() ? snapshot.data() : null))
+        setPageState(normalizePageState(selectedPage, document))
       } catch (error) {
         console.error(error)
         if (active) setPageState(createDefaultPageState(selectedPage))
@@ -216,15 +214,14 @@ export default function PageContentManager({ title, description, pages }) {
     if (!selectedPage) return
     setSaving(true)
     try {
-      await setDoc(doc(db, 'pageContents', selectedPage.id), {
+      await upsertContentDocument('pageContents', selectedPage.id, {
         label: selectedPage.label,
         heroTitle: pageState.heroTitle,
         heroSubtitle: pageState.heroSubtitle,
         heroImage: pageState.heroImage,
         blocks: pageState.blocks,
         deptGroups: pageState.deptGroups || [],
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
+      })
       window.dispatchEvent(new Event('admin:changes-saved'))
       alert('저장되었습니다.')
     } catch (error) {
@@ -265,10 +262,8 @@ export default function PageContentManager({ title, description, pages }) {
 
     setUploadingHero(true)
     try {
-      const storageRef = ref(storage, `page-content/${selectedPage.id}/hero-${Date.now()}-${file.name}`)
-      await uploadBytes(storageRef, file)
-      const downloadUrl = await getDownloadURL(storageRef)
-      setPageState(current => ({ ...current, heroImage: downloadUrl }))
+      const uploaded = await uploadMedia(file, 'page-content')
+      setPageState(current => ({ ...current, heroImage: uploaded.url }))
     } catch (error) {
       alert(`이미지 업로드 중 오류가 발생했습니다: ${error.message}`)
     } finally {

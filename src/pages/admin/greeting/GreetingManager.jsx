@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { getContentDocument, upsertContentDocument } from '../../../api/contentApi'
+import { uploadMedia } from '../../../utils/mediaStorage'
 import { validateImageFile } from '../../../utils/fileValidation'
-
-const FALLBACK_PHOTO = '/images/corp_new/mem8.jpg'
 
 const stickyBarStyle = {
   position: 'sticky',
@@ -25,7 +22,6 @@ const stickyBarStyle = {
 }
 
 export default function GreetingManager() {
-  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -45,10 +41,8 @@ export default function GreetingManager() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const snap = await getDoc(doc(db, 'greeting', 'main'))
-      if (snap.exists()) {
-        const d = snap.data()
-        setData(d)
+      const d = await getContentDocument('greeting', 'main')
+      if (d) {
         setPhotoUrl(d.photoUrl || '')
         setName(d.name || '')
         setNameTitle(d.nameTitle || '')
@@ -66,7 +60,7 @@ export default function GreetingManager() {
   useEffect(() => { fetchData() }, [])
 
   const saveAll = async (overrides = {}) => {
-    await setDoc(doc(db, 'greeting', 'main'), {
+    await upsertContentDocument('greeting', 'main', {
       photoUrl,
       name,
       nameTitle,
@@ -77,10 +71,9 @@ export default function GreetingManager() {
       signatureName,
       visions,
       ...overrides,
-      updatedAt: serverTimestamp(),
     })
     await fetchData()
-    window.dispatchEvent(new Event('admin:changes-saved'))
+    window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '인사말 내용을 저장했습니다.' } }))
   }
 
   const handleSave = async () => {
@@ -97,9 +90,7 @@ export default function GreetingManager() {
     if (err) { alert(err); e.target.value = ''; return }
     setUploadingPhoto(true)
     try {
-      const storageRef = ref(storage, `greeting/photo_${Date.now()}_${file.name}`)
-      await uploadBytes(storageRef, file)
-      const url = await getDownloadURL(storageRef)
+      const { url } = await uploadMedia(file, 'greeting')
       setPhotoUrl(url)
       await saveAll({ photoUrl: url })
       alert('사진이 업데이트되었습니다.')
@@ -127,7 +118,7 @@ export default function GreetingManager() {
 
   if (loading) return <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af' }}>불러오는 중...</div>
 
-  const displayPhoto = photoUrl || FALLBACK_PHOTO
+  const displayPhoto = photoUrl || ''
 
   return (
     <div>
@@ -155,8 +146,12 @@ export default function GreetingManager() {
           {/* 사진 */}
           <div style={{ flexShrink: 0, textAlign: 'center' }}>
             <div style={{ width: '120px', height: '144px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #eaecf0', background: '#e8edf5', marginBottom: '10px' }}>
-              <img src={displayPhoto} alt="목사 사진" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                onError={e => { e.target.style.display = 'none' }} />
+              {displayPhoto ? (
+                <img src={displayPhoto} alt="목사 사진" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { e.target.style.display = 'none' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #dbeafe, #eff6ff)' }} />
+              )}
             </div>
             <input ref={photoRef} type="file" accept=".jpg,.jpeg,.png" onChange={handlePhotoUpload} style={{ display: 'none' }} />
             <button onClick={() => photoRef.current?.click()} disabled={uploadingPhoto}
@@ -177,7 +172,7 @@ export default function GreetingManager() {
               <div style={{ width: '80px', flexShrink: 0 }}>
                 <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: '4px' }}>호칭</label>
                 <input value={nameTitle} onChange={e => setNameTitle(e.target.value)}
-                  placeholder="목사"
+                  placeholder="호칭 없음 가능"
                   style={{ width: '100%', padding: '9px 11px', border: '1px solid #d1d5db', borderRadius: '7px', fontSize: '0.875rem', boxSizing: 'border-box' }} />
               </div>
             </div>

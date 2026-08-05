@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../../../firebase'
+import { getContentDocument, upsertContentDocument } from '../../../api/contentApi'
+import { uploadMedia } from '../../../utils/mediaStorage'
 import { validateImageFile } from '../../../utils/fileValidation'
 
 // ── 색상 프리셋 ─────────────────────────────────
@@ -27,8 +26,6 @@ const stickyBarStyle = {
 
 // ── 건물 섹션 편집 컴포넌트 ──────────────────────
 function BuildingEditor({ building, onChange, onDelete }) {
-  const [editFloorIdx, setEditFloorIdx] = useState(null)
-
   const setField = (field, value) => onChange({ ...building, [field]: value })
 
   const addFloor = () => {
@@ -150,9 +147,8 @@ export default function FacilityManager() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const snap = await getDoc(doc(db, 'facility', 'main'))
-      if (snap.exists()) {
-        const d = snap.data()
+      const d = await getContentDocument('facility', 'main')
+      if (d) {
         setData(d)
         setBuildings(d.buildings || [])
         setPhotos(d.photos || [])
@@ -165,15 +161,14 @@ export default function FacilityManager() {
   useEffect(() => { fetchData() }, [])
 
   const saveAll = async (overrides = {}) => {
-    await setDoc(doc(db, 'facility', 'main'), {
+    await upsertContentDocument('facility', 'main', {
       heroImageUrl: heroUrl,
       buildings,
       photos,
       ...overrides,
-      updatedAt: serverTimestamp(),
     })
     await fetchData()
-    window.dispatchEvent(new Event('admin:changes-saved'))
+    window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '교회시설물 정보를 저장했습니다.' } }))
   }
 
   // ── 히어로 이미지 업로드 ──────────────────────
@@ -184,19 +179,16 @@ export default function FacilityManager() {
     if (err) { alert(err); e.target.value = ''; return }
     setUploadingHero(true)
     try {
-      const storageRef = ref(storage, `facility/hero_${Date.now()}_${file.name}`)
-      await uploadBytes(storageRef, file)
-      const url = await getDownloadURL(storageRef)
+      const { url } = await uploadMedia(file, 'facility')
       setHeroUrl(url)
-      await setDoc(doc(db, 'facility', 'main'), {
+      await upsertContentDocument('facility', 'main', {
         ...(data || {}),
         heroImageUrl: url,
         buildings,
         photos,
-        updatedAt: serverTimestamp(),
       })
       await fetchData()
-      window.dispatchEvent(new Event('admin:changes-saved'))
+      window.dispatchEvent(new CustomEvent('admin:changes-saved', { detail: { message: '교회시설물 대표 이미지를 저장했습니다.' } }))
       alert('대표 사진이 업데이트되었습니다.')
     } catch (e) { alert('오류: ' + e.message) }
     setUploadingHero(false)
@@ -232,16 +224,13 @@ export default function FacilityManager() {
     if (!newPhotoLabel.trim()) return alert('라벨을 입력하세요')
     setUploadingPhoto(true)
     try {
-      const storageRef = ref(storage, `facility/photo_${Date.now()}_${newPhotoFile.name}`)
-      await uploadBytes(storageRef, newPhotoFile)
-      const url = await getDownloadURL(storageRef)
+      const { url } = await uploadMedia(newPhotoFile, 'facility')
       const updatedPhotos = [...photos, { url, label: newPhotoLabel.trim() }]
-      await setDoc(doc(db, 'facility', 'main'), {
+      await upsertContentDocument('facility', 'main', {
         ...(data || {}),
         heroImageUrl: heroUrl,
         buildings,
         photos: updatedPhotos,
-        updatedAt: serverTimestamp(),
       })
       setNewPhotoFile(null)
       setNewPhotoPreview(null)
@@ -255,12 +244,11 @@ export default function FacilityManager() {
   const handleDeletePhoto = async (idx) => {
     const updatedPhotos = photos.filter((_, i) => i !== idx)
     try {
-      await setDoc(doc(db, 'facility', 'main'), {
+      await upsertContentDocument('facility', 'main', {
         ...(data || {}),
         heroImageUrl: heroUrl,
         buildings,
         photos: updatedPhotos,
-        updatedAt: serverTimestamp(),
       })
       await fetchData()
     } catch (e) { alert('오류: ' + e.message) }
