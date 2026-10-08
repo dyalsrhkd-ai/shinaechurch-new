@@ -1,6 +1,8 @@
 // Dashboard-only deployment bridge. Future full builds use Dashboard.jsx / AppAdmin.jsx directly.
 // 10/8 「신애교회 앱관리」: 사이드바 끝에 메뉴, #/admin/dashboard?view=app 이면 본문을 앱 띄우는 칸(app-admin-panel.js)으로
 (() => {
+  // 이 스크립트를 부른 주소의 꼬리표(?v=) — 앱관리 칸 스크립트도 같은 꼬리표로 불러야 브라우저가 옛 파일을 쓰지 않는다(서버가 1년 보관 설정)
+  const VERSION = (document.currentScript && new URL(document.currentScript.src, location.href).searchParams.get('v')) || 'dev'
   const APP_VIEW = '#/admin/dashboard?view=app'
   const route = () => location.hash.split('?')[0].replace(/\/$/, '')
   const EMERGENCY_VIEW = '#/admin/accounts?scope=emergency'
@@ -33,7 +35,7 @@
   const loadPanel = () => panelLoading || (panelLoading = new Promise((done, fail) => {
     if (window.ChurchAppAdmin) return done()
     const script = document.createElement('script')
-    script.src = '/app-admin-panel.js?v=20261008'
+    script.src = `/app-admin-panel.js?v=${encodeURIComponent(VERSION)}`
     script.onload = done
     script.onerror = () => { panelLoading = null; fail() }
     document.head.append(script)

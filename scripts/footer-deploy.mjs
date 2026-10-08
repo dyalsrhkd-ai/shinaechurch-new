@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createHash } from 'node:crypto'
 
 // Exact church-host static-file deployment only. Credentials never enter argv or files.
 if (process.stdin.isTTY) process.stdin.setRawMode(true)
@@ -148,7 +149,9 @@ if (mode === 'dashboard') {
   ftp('app-install-links-20261002.js', `upload-file = ${quote(resolve('public/app-install-links.js'))}
 `)
   if (ftp('app-install-links-20261002.js') !== readFileSync('public/app-install-links.js', 'utf8')) throw Error('Dashboard script mismatch')
-  const changed = html.replace(tag, '<script defer src="/app-install-links-20261002.js?v=app-admin"></script>')
+  // 꼬리표는 두 파일 내용에서 만든다 — 같은 꼬리표로 다시 올리면 브라우저가 옛 파일을 1년 동안 쓴다(10/8 실제로 겪음)
+  const version = 'app-admin-' + createHash('sha256').update(readFileSync('public/app-install-links.js')).update(readFileSync('public/app-admin-panel.js')).digest('hex').slice(0, 10)
+  const changed = html.replace(tag, `<script defer src="/app-install-links-20261002.js?v=${version}"></script>`)
   writeFileSync(resolve(backupDir, 'index.app-admin.html'), changed)
   if (changed !== html) {
     ftp('index.html', `upload-file = ${quote(resolve(backupDir, 'index.app-admin.html'))}
