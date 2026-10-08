@@ -3,6 +3,8 @@
 (() => {
   const APP_VIEW = '#/admin/dashboard?view=app'
   const route = () => location.hash.split('?')[0].replace(/\/$/, '')
+  const EMERGENCY_VIEW = '#/admin/accounts?scope=emergency'
+  const isEmergency = () => route() === '#/admin/accounts' && new URLSearchParams(location.hash.split('?')[1] || '').get('scope') === 'emergency'
   const isAppView = () => route() === '#/admin/dashboard' && new URLSearchParams(location.hash.split('?')[1] || '').get('view') === 'app'
   let panelLoading = null, unmount = null
   // 10/8 계정 통일: 홈페이지 로그인 응답의 앱 토큰(appSession)을 이 탭에만 보관 → 앱관리 칸이 다시 로그인하지 않게. 로그아웃하면 지운다
@@ -10,6 +12,8 @@
   if (window.fetch && !window.fetch.churchWrapped) {
     const original = window.fetch.bind(window)
     const wrapped = async (input, init) => {
+      // 「비상용 계정 관리」 화면이면 관리자 계정 요청을 홈페이지 계정 쪽으로(scope=emergency)
+      if (typeof input === 'string' && input.includes('/api/admin-users.php') && isEmergency()) input += (input.includes('?') ? '&' : '?') + 'scope=emergency'
       const response = await original(input, init)
       try {
         const url = String(input && input.url ? input.url : input)
@@ -98,6 +102,29 @@
       group.append(title, link)
     }
     if (nav.lastElementChild !== group) nav.append(group)
+    // 「관리자 계정 설정」 바로 아래에 「비상용 계정 관리」(10/8) — 같은 모양을 복제
+    const accounts = nav.querySelector('a[href="#/admin/accounts"]')
+    const holder = accounts?.parentElement
+    if (accounts && holder && holder.parentElement && !nav.querySelector('[data-church-emergency-menu]')) {
+      const item = document.createElement('div')
+      item.setAttribute('data-church-emergency-menu', '')
+      item.style.cssText = holder.getAttribute('style') || ''
+      const link = accounts.cloneNode(false)
+      link.href = EMERGENCY_VIEW
+      const icon = document.createElement('span')
+      icon.style.cssText = 'font-size:.9rem;'
+      icon.textContent = '🛟'
+      link.append(icon, '비상용 계정 관리')
+      item.append(link)
+      holder.after(item)
+    }
+    const emergencyLink = nav.querySelector('[data-church-emergency-menu] a')
+    if (emergencyLink) {
+      const onEmergency = isEmergency()
+      paint(emergencyLink, onEmergency)
+      if (accounts && onEmergency) { accounts.dataset.churchDimmed = '1'; paint(accounts, false) }
+      else if (accounts && accounts.dataset.churchDimmed) { delete accounts.dataset.churchDimmed; paint(accounts, route() === '#/admin/accounts') }
+    }
     const on = isAppView()
     paint(group.querySelector('a'), on)
     if (on && !home.dataset.churchDimmed) { home.dataset.churchDimmed = '1'; paint(home, false) }
@@ -133,35 +160,47 @@
       .catch(() => { host.textContent = '앱관리 화면을 불러오지 못했습니다. 새로고침해 주세요.' })
   }
 
-  // 관리자 계정 설정(10/8): 정식 관리자는 앱에서, 여기서 만드는 계정은 비상용이라고 알린다. 앱 계정 줄은 「앱 계정」으로
+  // 관리자 계정 설정 = 앱 관리자(연동), 비상용 계정 관리 = 홈페이지 전용 계정(10/8)
   function attachAccountsNote() {
     const main = document.querySelector('main')
     const content = main?.children[1]
     const note = document.getElementById('church-accounts-note')
     if (route() !== '#/admin/accounts' || !content) { note?.remove(); return }
-    if (!note) {
+    const emergency = isEmergency()
+    const kind = emergency ? 'emergency' : 'app'
+    if (note && note.dataset.kind !== kind) note.remove()
+    if (!document.getElementById('church-accounts-note')) {
       const box = document.createElement('div')
       box.id = 'church-accounts-note'
-      box.style.cssText = 'background:#ecfdf3;border:1px solid #b7e4c7;border-radius:12px;padding:14px 18px;margin:0 0 18px;color:#14532d;font-size:.85rem;line-height:1.7;'
+      box.dataset.kind = kind
+      box.style.cssText = `background:${emergency ? '#fff7ed' : '#ecfdf3'};border:1px solid ${emergency ? '#fed7aa' : '#b7e4c7'};border-radius:12px;padding:14px 18px;margin:0 0 18px;color:${emergency ? '#7c2d12' : '#14532d'};font-size:.85rem;line-height:1.7;`
       const title = document.createElement('strong')
-      title.textContent = '관리자 계정은 교인앱 계정으로 통일했습니다'
       const body = document.createElement('p')
       body.style.cssText = 'margin:4px 0 0;'
-      body.textContent = '정식 관리자는 교인앱에서 가입 → 승인 → 교인 관리에서 역할을 「관리자」로 지정하면 홈페이지에도 그 계정으로 들어옵니다. 여기서 만드는 계정은 앱 서버가 멈췄을 때만 쓰는 비상용입니다.'
-      const link = document.createElement('a')
-      link.href = APP_VIEW
-      link.textContent = '신애교회 앱관리 열기 →'
-      link.style.cssText = 'display:inline-block;margin-top:6px;color:#155e45;font-weight:700;'
-      box.append(title, body, link)
+      if (emergency) {
+        title.textContent = '비상용 계정 — 앱 서버가 멈췄을 때만 씁니다'
+        body.textContent = '홈페이지 전용 계정입니다. 평소 관리자는 「관리자 계정 설정」(교인앱 관리자와 연동)에서 다루세요. 비상용 계정은 하나 이상 남겨 두어야 합니다.'
+      } else {
+        title.textContent = '교인앱 관리자와 연동된 목록입니다'
+        body.textContent = '여기서 만들면 교인앱에도 관리자 계정이 생기고, 앱 교인 관리에서 관리자로 지정한 사람도 여기에 보입니다. 「삭제」는 관리자 자격만 빼고 앱 계정은 그대로 둡니다.'
+      }
+      box.append(title, body)
       content.prepend(box)
     }
-    for (const cell of content.querySelectorAll('td, span, p, div')) {
-      if (cell.children.length === 0 && /^app-[0-9a-f-]{36}$/.test(cell.textContent.trim())) {
-        cell.textContent = '앱 계정(앱 교인 관리에서 관리)'
-        cell.style.color = '#155e45'
-      }
+    const heading = [...content.querySelectorAll('h1')].find(h => /관리자 계정 설정|비상용 계정 관리/.test(h.textContent))
+    if (heading) {
+      const want = emergency ? '비상용 계정 관리' : '관리자 계정 설정'
+      if (heading.textContent.trim() !== want) heading.textContent = want
     }
   }
+
+  // 같은 화면(관리자 계정)에서 연동 ↔ 비상용으로 바뀌면 목록을 새로 받도록 다시 연다(화면이 주소 뒷부분만 바뀌면 다시 안 부른다)
+  let lastAccounts = route() === '#/admin/accounts' ? String(isEmergency()) : null
+  window.addEventListener('hashchange', () => {
+    const now = route() === '#/admin/accounts' ? String(isEmergency()) : null
+    if (lastAccounts !== null && now !== null && now !== lastAccounts) location.reload()
+    lastAccounts = now
+  })
 
   function update() { attachLinks(); attachMenu(); attachAppView(); attachAccountsNote() }
   new MutationObserver(update).observe(document.body, { childList: true, subtree: true })

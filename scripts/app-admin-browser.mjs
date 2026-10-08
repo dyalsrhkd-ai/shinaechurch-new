@@ -97,9 +97,17 @@ try {
   assert.ok(await page.getByRole('heading', { name: '대시보드', exact: true }).isVisible(), '대시보드 복귀')
   await menu.click(); await host.waitFor(); await page.waitForTimeout(300)
   assert.equal(await widthBox(page).inputValue(), remembered, '고른 폭 기억')
-  // 관리자 계정 설정: 비상용 안내
-  await page.evaluate(() => { location.hash = '#/admin/accounts' }); await page.waitForTimeout(1200)
-  assert.match(await page.locator('#church-accounts-note').textContent(), /비상용/)
+  // 관리자 계정 설정 = 앱 관리자 연동 안내, 바로 아래 「비상용 계정 관리」 메뉴 → 홈페이지 계정 쪽(scope=emergency)으로 요청
+  await page.evaluate(() => { location.hash = '#/admin/accounts' }); await page.waitForTimeout(1500)
+  assert.match(await page.locator('#church-accounts-note').textContent(), /연동/)
+  const emergencyMenu = page.locator('aside [data-church-emergency-menu] a')
+  assert.match(await emergencyMenu.textContent(), /비상용 계정 관리/)
+  const scoped = page.waitForRequest(r => r.url().includes('/api/admin-users.php') && r.url().includes('scope=emergency'), { timeout: 15000 })
+  await emergencyMenu.click()
+  await scoped
+  await page.waitForTimeout(1500)
+  assert.match(await page.locator('#church-accounts-note').textContent(), /비상용 계정/)
+  await page.screenshot({ path: 'dist-footer-backup/admin-emergency-accounts.png' })
   // 로그아웃하면 보관한 앱 토큰을 지운다
   await page.evaluate(() => fetch('/api/auth.php?action=logout', { method: 'POST' }))
   await page.waitForFunction(() => sessionStorage.getItem('church-app-session') === null)

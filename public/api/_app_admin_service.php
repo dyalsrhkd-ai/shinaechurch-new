@@ -7,6 +7,7 @@
 require_once __DIR__ . '/_auth_service.php';
 
 define('APP_ADMIN_LOGIN_URL', 'https://shinae-community-media.shinae-community.workers.dev/admin-login');
+define('APP_ADMIN_ACCOUNTS_URL', 'https://shinae-community-media.shinae-community.workers.dev/admin-accounts');
 
 // 앱 로그인에 쓰는 모양(아이디 3자~·휴대폰 번호·이메일·admin). 홈페이지 아이디 규칙(4자~)보다 넓다
 function app_admin_identity_ok($identity) {
@@ -91,5 +92,74 @@ function app_admin_shadow(array $repository, $uid, $name) {
             'must_change_password' => 0,
         ));
     }
-    return $repository['findUser']($loginId);
+    return $repository['findShadowRow']($loginId);
+}
+
+// 그림자 줄 저장소 — 로그인(auth.php)과 관리자 계정 설정(admin-users.php)이 같이 쓴다
+function app_shadow_repository(PDO $pdo) {
+    return array(
+        'findShadow' => function ($uid) use ($pdo) {
+            $statement = $pdo->prepare('SELECT id FROM admin_users WHERE uid = :uid LIMIT 1');
+            $statement->execute(array('uid' => $uid));
+            $row = $statement->fetch();
+            return is_array($row) ? $row : null;
+        },
+        'findShadowRow' => function ($loginId) use ($pdo) {
+            $statement = $pdo->prepare(
+                'SELECT id, uid, login_id, display_name, password_hash, active_yn, must_change_password, failed_login_count, locked_until, last_login_at ' .
+                'FROM admin_users WHERE login_id = :login_id AND deleted_at IS NULL LIMIT 1'
+            );
+            $statement->execute(array('login_id' => $loginId));
+            $row = $statement->fetch();
+            return is_array($row) ? $row : null;
+        },
+        'reviveShadow' => function ($id, $loginId, $displayName) use ($pdo) {
+            $statement = $pdo->prepare(
+                "UPDATE admin_users SET login_id = :login_id, display_name = :display_name, active_yn = 'Y', deleted_at = NULL, " .
+                'must_change_password = 0, failed_login_count = 0, locked_until = NULL WHERE id = :id'
+            );
+            $statement->execute(array('login_id' => $loginId, 'display_name' => $displayName, 'id' => $id));
+        },
+        'releaseDeletedLoginId' => function ($loginId) use ($pdo) {
+            $statement = $pdo->prepare(
+                "UPDATE admin_users SET login_id = CONCAT(LEFT(login_id, 40), '~deleted-', id) " .
+                'WHERE login_id = :login_id AND deleted_at IS NOT NULL'
+            );
+            $statement->execute(array('login_id' => $loginId));
+        },
+        'createShadow' => function (array $user) use ($pdo) {
+            $statement = $pdo->prepare(
+                'INSERT INTO admin_users (uid, login_id, display_name, password_hash, must_change_password) ' .
+                'VALUES (:uid, :login_id, :display_name, :password_hash, :must_change_password)'
+            );
+            $statement->execute($user);
+        },
+        // 앱에서 관리자가 아니게 된 사람의 그림자 줄은 끄고 열린 세션도 끊는다(목록을 볼 때마다 맞춤)
+        'retireShadowsExcept' => function (array $uids) use ($pdo) {
+            $keep = array();
+            foreach ($uids as $uid) {
+                $keep[] = $pdo->quote('app-' . $uid);
+            }
+            $where = "login_id LIKE 'app-%' AND deleted_at IS NULL" . (count($keep) ? ' AND login_id NOT IN (' . implode(',', $keep) . ')' : '');
+            $pdo->exec('DELETE FROM admin_sessions WHERE admin_user_id IN (SELECT id FROM (SELECT id FROM admin_users WHERE ' . $where . ') gone)');
+            $pdo->exec("UPDATE admin_users SET active_yn = 'N', deleted_at = NOW() WHERE " . $where);
+        },
+    );
+}
+
+// 앱 관리자 계정 다루기(Worker /admin-accounts). 결과: array(상태코드, 응답 배열)
+function app_accounts_call(array $payload, $key = null, $post = null) {
+    $key = $key === null ? app_admin_login_key() : $key;
+    if ($key === '') {
+        return array(0, array('error' => '앱 서버 연결 설정이 없습니다.'));
+    }
+    $post = $post === null ? 'app_admin_http_post' : $post;
+    $response = call_user_func(
+        $post,
+        APP_ADMIN_ACCOUNTS_URL,
+        array('Content-Type: application/json', 'X-Admin-Login-Key: ' . $key),
+        json_encode($payload)
+    );
+    $data = json_decode((string) $response[1], true);
+    return array((int) $response[0], is_array($data) ? $data : array());
 }
