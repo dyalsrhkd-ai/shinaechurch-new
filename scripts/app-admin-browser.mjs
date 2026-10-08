@@ -19,6 +19,8 @@ async function openAdmin(viewport) {
   await page.route('**/app-admin-panel.js*', r => r.fulfill({ contentType: 'text/javascript', body: readFileSync('public/app-admin-panel.js', 'utf8') }))
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url())
+    // 10/8 계정 통일: 앱 관리자로 로그인하면 응답에 앱 토큰(appSession)이 온다
+    if (url.pathname.endsWith('/auth.php') && url.searchParams.get('action') === 'login') return route.fulfill({ json: { ok: true, user: { uid: 'app-fixture', displayName: 'UI test', mustChangePassword: false }, csrfToken: 'test-only', appSession: { access_token: 'access-fixture', refresh_token: 'refresh-fixture' } } })
     if (url.pathname.endsWith('/auth.php') && url.searchParams.get('action') === 'me') return route.fulfill({ json: { ok: true, user: { uid: 'app-admin-fixture', displayName: 'UI test', mustChangePassword: false }, csrfToken: 'test-only' } })
     if (route.request().method() !== 'GET') return route.fulfill({ json: { ok: true } })
     if (url.pathname.endsWith('/runtime.php')) return route.fulfill({ json: { ok: true, summary: { todayVisits: 0, weekVisits: 0, monthVisits: 0, yearVisits: 0, totalVisits: 0 }, logs: [] } })
@@ -41,6 +43,9 @@ const shapeButton = (page, name) => page.locator('[data-church-app-admin] [role=
 try {
   // 데스크톱 1440: 메뉴 → 칸, 3모양 × 탭 5개
   let page = await openAdmin({ width: 1440, height: 900 })
+  // 로그인 응답의 앱 토큰을 다리 스크립트가 이 탭에 보관한다(로그인 화면 대신 같은 요청을 직접 보냄)
+  await page.evaluate(() => fetch('/api/auth.php?action=login', { method: 'POST', body: '{}' }))
+  await page.waitForFunction(() => JSON.parse(sessionStorage.getItem('church-app-session') || 'null')?.access_token === 'access-fixture')
   const menu = page.locator('aside [data-church-app-menu] a')
   await menu.waitFor({ timeout: 10000 })
   assert.equal(await menu.getAttribute('href'), '#/admin/dashboard?view=app')
@@ -53,7 +58,9 @@ try {
   assert.equal(await widthBox(page).inputValue(), '412')
   await page.waitForFunction(() => document.querySelector('[data-church-app-admin] iframe')?.src.includes('embed=admin'))
   await page.waitForTimeout(3000)
-  await appFrame(page).getByRole('button', { name: /관리자로 입장/ }).click(); await page.waitForTimeout(1500)
+  // 토큰을 넘겨받아 로그인 화면 없이 바로 관리자로 들어와 있어야 한다(데모는 관리자 데모로 입장)
+  await appFrame(page).locator('.mobile-nav').getByRole('button', { name: '교인 관리' }).waitFor({ timeout: 10000 })
+  assert.equal(await appFrame(page).getByRole('button', { name: /관리자로 입장/ }).count(), 0, '앱관리에서 다시 로그인하지 않음')
   for (const [shape, w] of [['작은 폰', 344], ['보통 폰', 412], ['넓은 화면', 860]]) {
     await shapeButton(page, shape).click(); await page.waitForTimeout(700)
     const s = await frameState(page)
@@ -90,6 +97,12 @@ try {
   assert.ok(await page.getByRole('heading', { name: '대시보드', exact: true }).isVisible(), '대시보드 복귀')
   await menu.click(); await host.waitFor(); await page.waitForTimeout(300)
   assert.equal(await widthBox(page).inputValue(), remembered, '고른 폭 기억')
+  // 관리자 계정 설정: 비상용 안내
+  await page.evaluate(() => { location.hash = '#/admin/accounts' }); await page.waitForTimeout(1200)
+  assert.match(await page.locator('#church-accounts-note').textContent(), /비상용/)
+  // 로그아웃하면 보관한 앱 토큰을 지운다
+  await page.evaluate(() => fetch('/api/auth.php?action=logout', { method: 'POST' }))
+  await page.waitForFunction(() => sessionStorage.getItem('church-app-session') === null)
   await page.close()
   // 태블릿 1024·768: 넓은 화면은 zoom 으로 맞추고 앱 안 폭은 860, 페이지 가로 넘침 없음
   for (const vp of [{ width: 1024, height: 768 }, { width: 768, height: 1024 }]) {

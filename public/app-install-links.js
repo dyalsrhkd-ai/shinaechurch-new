@@ -5,6 +5,27 @@
   const route = () => location.hash.split('?')[0].replace(/\/$/, '')
   const isAppView = () => route() === '#/admin/dashboard' && new URLSearchParams(location.hash.split('?')[1] || '').get('view') === 'app'
   let panelLoading = null, unmount = null
+  // 10/8 계정 통일: 홈페이지 로그인 응답의 앱 토큰(appSession)을 이 탭에만 보관 → 앱관리 칸이 다시 로그인하지 않게. 로그아웃하면 지운다
+  const SESSION_KEY = 'church-app-session'
+  if (window.fetch && !window.fetch.churchWrapped) {
+    const original = window.fetch.bind(window)
+    const wrapped = async (input, init) => {
+      const response = await original(input, init)
+      try {
+        const url = String(input && input.url ? input.url : input)
+        if (/\/api\/auth\.php\?action=logout/.test(url)) sessionStorage.removeItem(SESSION_KEY)
+        else if (/\/api\/auth\.php\?action=login/.test(url) && response.ok) {
+          response.clone().json().then(data => {
+            if (data && data.appSession && data.appSession.access_token) sessionStorage.setItem(SESSION_KEY, JSON.stringify(data.appSession))
+            else sessionStorage.removeItem(SESSION_KEY)
+          }).catch(() => {})
+        }
+      } catch { /* 토큰 보관은 편의일 뿐 — 로그인 자체는 그대로 */ }
+      return response
+    }
+    wrapped.churchWrapped = true
+    window.fetch = wrapped
+  }
   const loadPanel = () => panelLoading || (panelLoading = new Promise((done, fail) => {
     if (window.ChurchAppAdmin) return done()
     const script = document.createElement('script')
@@ -112,7 +133,37 @@
       .catch(() => { host.textContent = '앱관리 화면을 불러오지 못했습니다. 새로고침해 주세요.' })
   }
 
-  function update() { attachLinks(); attachMenu(); attachAppView() }
+  // 관리자 계정 설정(10/8): 정식 관리자는 앱에서, 여기서 만드는 계정은 비상용이라고 알린다. 앱 계정 줄은 「앱 계정」으로
+  function attachAccountsNote() {
+    const main = document.querySelector('main')
+    const content = main?.children[1]
+    const note = document.getElementById('church-accounts-note')
+    if (route() !== '#/admin/accounts' || !content) { note?.remove(); return }
+    if (!note) {
+      const box = document.createElement('div')
+      box.id = 'church-accounts-note'
+      box.style.cssText = 'background:#ecfdf3;border:1px solid #b7e4c7;border-radius:12px;padding:14px 18px;margin:0 0 18px;color:#14532d;font-size:.85rem;line-height:1.7;'
+      const title = document.createElement('strong')
+      title.textContent = '관리자 계정은 교인앱 계정으로 통일했습니다'
+      const body = document.createElement('p')
+      body.style.cssText = 'margin:4px 0 0;'
+      body.textContent = '정식 관리자는 교인앱에서 가입 → 승인 → 교인 관리에서 역할을 「관리자」로 지정하면 홈페이지에도 그 계정으로 들어옵니다. 여기서 만드는 계정은 앱 서버가 멈췄을 때만 쓰는 비상용입니다.'
+      const link = document.createElement('a')
+      link.href = APP_VIEW
+      link.textContent = '신애교회 앱관리 열기 →'
+      link.style.cssText = 'display:inline-block;margin-top:6px;color:#155e45;font-weight:700;'
+      box.append(title, body, link)
+      content.prepend(box)
+    }
+    for (const cell of content.querySelectorAll('td, span, p, div')) {
+      if (cell.children.length === 0 && /^app-[0-9a-f-]{36}$/.test(cell.textContent.trim())) {
+        cell.textContent = '앱 계정(앱 교인 관리에서 관리)'
+        cell.style.color = '#155e45'
+      }
+    }
+  }
+
+  function update() { attachLinks(); attachMenu(); attachAppView(); attachAccountsNote() }
   new MutationObserver(update).observe(document.body, { childList: true, subtree: true })
   window.addEventListener('hashchange', update)
   update()

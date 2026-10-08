@@ -41,6 +41,14 @@
     device.setAttribute('data-device', '')
     const frame = el('iframe', 'border:0;border-radius:24px;background:#fff;display:block;width:100%;height:100%;')
     frame.title = '신애교회 앱'; frame.src = appUrl()
+    // 10/8 계정 통일: 홈페이지에 앱 관리자로 로그인했으면(다리 스크립트가 이 탭에 보관한 토큰) 앱이 「준비됨」이라 할 때 넘겨 다시 로그인하지 않게
+    const onMessage = event => {
+      if (event.source !== frame.contentWindow || event.data?.type !== 'shinae-embed-ready') return
+      let session = null
+      try { session = JSON.parse(sessionStorage.getItem('church-app-session') || 'null') } catch { session = null }
+      if (session?.access_token && session?.refresh_token) frame.contentWindow.postMessage({ type: 'shinae-embed-session', access_token: session.access_token, refresh_token: session.refresh_token }, new URL(appUrl()).origin)
+    }
+    window.addEventListener('message', onMessage)
     const fail = el('div', 'display:none;position:absolute;inset:12px;border-radius:24px;background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#475467;font-size:.9rem;text-align:center;padding:20px;')
     const retry = el('button', 'border:1px solid #cfe3d8;background:#fff;color:#155e45;border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer;', '다시 불러오기')
     retry.type = 'button'
@@ -87,7 +95,7 @@
     const ro = new ResizeObserver(render)
     ro.observe(stage)
     watch(); render()
-    return () => ro.disconnect()
+    return () => { ro.disconnect(); window.removeEventListener('message', onMessage) }
   }
   window.ChurchAppAdmin = { mount, clamp, shapeOf, MIN, MAX }
 })()
