@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true })
+// 내려받기 때 시험 브라우저가 연 빈 탭이 닫히면서 playwright 내부에서 TargetClosedError 가 난다 — 시험 대상과 무관해서 이것만 무시
+process.on('uncaughtException', error => { if (error && error.name === 'TargetClosedError') return; console.error(error); process.exit(1) })
 const base = () => ({
   setting: { enabled: false, title: '대예배 실시간 예배 영상', youtubeUrl: 'UCabcdefghijklmnopqrstuv', youtubeChromeProfileName: '', currentVideoId: '', accessPassword: '1004', accessKey: 'sharekey123', sermonTitle: '', scriptureTitle: '' },
   agent: { seenAgo: 5, obsConnected: true, streamActive: false, currentVideoId: '', chromeProfiles: [{ dir: 'Default', name: '방송실', email: '' }, { dir: 'Profile 3', name: '신애교회', email: 'church@gmail.com' }] },
@@ -26,6 +28,7 @@ async function open(viewport, hash = '#/admin/live-streams/main') {
       const body = JSON.parse(req.postData() || '{}')
       calls.push({ action, body, csrf: req.headers()['x-csrf-token'] })
       if (action === 'save') { state.setting = { ...body.setting }; return route.fulfill({ json: { ok: true, setting: state.setting } }) }
+      if (action === 'issue-agent') return route.fulfill({ status: 201, json: { ok: true, agent: { agentKey: body.agentKey, agentToken: 'issued-token-1234567890abcdef', streamKeys: body.streamKeys } } })
       if (action === 'command') {
         state.command = { desiredState: body.desiredState, status: 'pending', error: '' }
         // 방송 PC 흉내: 1초 뒤 받음, 2초 뒤 OBS, 3초 뒤 유튜브 영상
@@ -92,7 +95,7 @@ try {
   await page.locator('.cls select').selectOption('Profile 3')
   await page.locator('.cls details input').nth(1).fill('주일 예배 생중계')
   calls.length = 0
-  await page.locator('.cls .save').click(); await page.waitForTimeout(500)
+  await page.getByRole('button', { name: '설정 저장' }).click(); await page.waitForTimeout(500)
   assert.equal(calls[0].body.setting.youtubeChromeProfileName, 'Profile 3')
   assert.equal(calls[0].body.setting.title, '주일 예배 생중계')
   assert.equal(calls[0].body.setting.sermonTitle, '벽을 깨는 치유', '설정 저장이 설교 제목을 지우지 않는다')
@@ -101,8 +104,21 @@ try {
   // 잘못된 채널은 저장 안 함
   await page.locator('.cls details input').nth(0).fill('https://www.youtube.com/@shinae')
   calls.length = 0
-  await page.locator('.cls .save').click(); await page.waitForTimeout(300)
+  await page.getByRole('button', { name: '설정 저장' }).click(); await page.waitForTimeout(300)
   assert.equal(calls.length, 0); assert.match(await page.locator('.cls details .msg').textContent(), /찾지 못했습니다/)
+
+  // 4-2) 방송 PC 등록: 열쇠를 발급받아 그 EXE 가 읽는 이름의 설정 파일로 내려받는다
+  await page.locator('.cls .pcreg input[type=password]').fill('obs-pass-1')
+  calls.length = 0
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.cls .pcreg button.save').click()])
+  assert.equal(download.suggestedFilename(), 'live-agent.main.json')
+  const issued = calls.find(c => c.action === 'issue-agent')
+  assert.deepEqual([issued.body.agentKey, issued.body.streamKeys, issued.csrf], ['main-pc', ['main'], 'csrf-test'])
+  const config = JSON.parse(readFileSync(await download.path(), 'utf8'))
+  assert.equal(config.apiBaseUrl, 'http://www.shinaechurch.co.kr')
+  assert.deepEqual([config.agentId, config.agentToken, config.obsPassword, config.obsUrl], ['main-pc', 'issued-token-1234567890abcdef', 'obs-pass-1', 'ws://127.0.0.1:4444'])
+  assert.deepEqual(config.managedStreamKeys, ['main'])
+  assert.match(await page.locator('.cls .pcreg .msg').textContent(), /ShinaeLiveMain\.exe/)
 
   // 5) 다른 메뉴로 가면 원래 화면, 다른 부서로 가면 그 부서
   await page.evaluate(() => { location.hash = '#/admin/dashboard' }); await page.waitForTimeout(1500)
@@ -110,8 +126,18 @@ try {
   assert.equal(await page.locator('[data-church-hidden]').count(), 0, '숨긴 본문 되돌림')
   await page.evaluate(() => { location.hash = '#/admin/live-streams/youth' })
   await page.locator('[data-church-live-host] h1', { hasText: '중고등부 방송' }).waitFor({ timeout: 10000 })
+  // 중고등부·청년부 한 대로: 통합 EXE 가 읽는 이름·두 부서
+  await page.locator('.cls details summary').click()
+  await page.locator('.cls .pcreg input[type=checkbox]').check()
+  calls.length = 0
+  const [both] = await Promise.all([page.waitForEvent('download'), page.locator('.cls .pcreg button.save').click()])
+  assert.equal(both.suggestedFilename(), 'live-agent.youth-young.json')
+  assert.deepEqual(calls.find(c => c.action === 'issue-agent').body.streamKeys, ['youth', 'young'])
+  const bothConfig = JSON.parse(readFileSync(await both.path(), 'utf8'))
+  assert.deepEqual([bothConfig.agentId, bothConfig.managedStreamKeys], ['youth-young-pc', ['youth', 'young']])
+  assert.match(await page.locator('.cls .pcreg .msg').textContent(), /ShinaeLiveYouthYoung\.exe/)
   await page.screenshot({ path: 'dist-footer-backup/live-simple-1440.png' })
-  await page.close()
+  // 내려받기 때 시험 브라우저가 빈 탭을 하나 더 열어서 여기서 닫으면 playwright 가 멈춘다 → 끝에서 브라우저째 닫는다
 
   // 6) 채널 없음 → 처음 설정 먼저, 휴대폰 폭에서 가로 넘침 없음
   state = base(); state.setting.youtubeUrl = ''
@@ -123,4 +149,4 @@ try {
   await page.screenshot({ path: 'dist-footer-backup/live-simple-390.png', fullPage: true })
   await page.close()
   console.log('live-simple-browser: PASS')
-} finally { await browser.close() }
+} catch (error) { console.error('live-simple-browser: FAIL', error); process.exitCode = 1 } finally { await browser.close() }

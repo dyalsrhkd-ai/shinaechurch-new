@@ -3,6 +3,10 @@
 (() => {
   const LABELS = { children: '아동부', youth: '중고등부', young: '청년부', main: '대예배' }
   const ONLINE_SECONDS = 60
+  // 방송 PC 프로그램: 부서 하나짜리는 live-agent.<부서>.json, 중고등부+청년부 한 대는 live-agent.youth-young.json 을 EXE 옆에서 읽는다
+  const EXE = { main: 'ShinaeLiveMain.exe', children: 'ShinaeLiveChildren.exe', youth: 'ShinaeLiveYouth.exe', young: 'ShinaeLiveYoung.exe', 'youth-young': 'ShinaeLiveYouthYoung.exe' }
+  const DOWNLOAD_PAGE = 'https://github.com/dyalsrhkd-ai/shinaechurch-new/releases/latest'
+  const API_BASE = 'http://www.shinaechurch.co.kr' // 이 사이트는 https 가 안 열려 있다
   const css = `
   .cls{max-width:760px;margin:0 auto;padding:8px 0 40px;color:#0f172a;font-size:16px;line-height:1.6}
   .cls *{box-sizing:border-box}
@@ -35,6 +39,11 @@
   .cls .row{display:flex;gap:8px}.cls .row input{flex:1;min-width:0}
   .cls .ghost{border:1px solid #cbd5e1;background:#fff;border-radius:12px;padding:0 14px;font-weight:800;cursor:pointer;white-space:nowrap;font-size:.92rem;color:#0f172a}
   .cls .save{border:none;background:#1d4ed8;color:#fff;border-radius:12px;padding:14px 20px;font-weight:900;font-size:1rem;cursor:pointer;width:100%}
+  .cls .pcreg{border-top:1px dashed #cbd5e1;margin-top:22px;padding-top:18px}
+  .cls .pcreg h3{font-size:1rem;font-weight:900;margin:0 0 4px}
+  .cls .pcreg .check{display:flex;gap:8px;align-items:center;font-weight:700;margin-bottom:14px}
+  .cls .pcreg .check input{width:18px;height:18px}
+  .cls .pcreg a{color:#1d4ed8;font-weight:800}
   .cls .link{word-break:break-all;color:#334155;font-size:.85rem;background:#f8fafc;border-radius:10px;padding:10px 12px;margin-top:8px}
   @media (max-width:600px){.cls .card{padding:16px}.cls h1{font-size:1.25rem}}
   `
@@ -88,6 +97,20 @@
     const keyBtn = el('button', { type: 'button', className: 'ghost', textContent: '새로 만들기' })
     const saveBtn = el('button', { type: 'button', className: 'save', textContent: '설정 저장' })
     const setupMsg = el('div')
+
+    // 새 방송 PC 준비: 열쇠를 발급받아 그 EXE 가 읽는 이름의 설정 파일로 내려받는다
+    const pair = streamKey === 'youth' || streamKey === 'young'
+    const together = el('input', { type: 'checkbox' })
+    const obsPass = el('input', { type: 'password', placeholder: 'OBS → 도구 → WebSocket 서버 설정의 비밀번호' })
+    const regBtn = el('button', { type: 'button', className: 'save', textContent: '설정 파일 받기' })
+    const regMsg = el('div')
+    const pcreg = el('div', { className: 'pcreg' },
+      el('h3', { textContent: '새 방송 PC 준비' }),
+      el('p', { className: 'note', textContent: `① 방송 PC에 크롬·OBS를 깔고 크롬에서 교회 유튜브 계정으로 로그인 ② 아래에서 설정 파일 받기 ③ 프로그램(EXE)을 받아 설정 파일과 같은 폴더에 두고 실행. 다시 받으면 전에 받은 설정 파일은 못 쓰게 됩니다(방송 PC는 부서마다 한 대만 켜 두세요).` }),
+      pair ? el('label', { className: 'check' }, together, '중고등부·청년부를 이 컴퓨터 한 대로 방송') : null,
+      el('div', { className: 'field' }, el('label', { textContent: 'OBS 비밀번호' }, el('span', { className: 'hint', textContent: '방송 PC의 OBS에 정한 것' })), obsPass),
+      regBtn, regMsg,
+      el('p', { className: 'note' }, '프로그램(EXE) 받는 곳: ', el('a', { href: DOWNLOAD_PAGE, target: '_blank', rel: 'noopener', textContent: '방송 PC 프로그램 다운로드' })))
     const setup = el('details', { className: 'card' },
       el('summary', { textContent: '처음 설정 (한 번만 하면 됩니다)' }),
       el('p', { className: 'note', textContent: '유튜브 채널과 방송 계정을 정해 두는 곳입니다. 평소 예배 때는 손대지 않아도 됩니다.' }),
@@ -96,7 +119,7 @@
       el('div', { className: 'field' }, el('label', { textContent: '방송 제목' }), title),
       el('div', { className: 'field' }, el('label', { textContent: '시청 비밀번호' }), password),
       el('div', { className: 'field' }, el('label', { textContent: '카카오톡 공유 링크' }, el('span', { className: 'hint', textContent: '비밀번호 없이 바로 볼 수 있는 주소' })), el('div', { className: 'row' }, key, copyBtn, keyBtn), linkBox),
-      saveBtn, setupMsg)
+      saveBtn, setupMsg, pcreg)
 
     const root = el('div', { className: 'cls' },
       el('h1', { textContent: `${label} 방송` }),
@@ -215,6 +238,27 @@
       const link = shareLink(key.value)
       if (!link) return
       try { await navigator.clipboard.writeText(link); say(setupMsg, 'ok', '공유 링크를 복사했습니다. 카카오톡에 붙여 넣으세요.') } catch { say(setupMsg, 'err', '복사하지 못했습니다. 주소를 길게 눌러 직접 복사해 주세요.') }
+    })
+    regBtn.addEventListener('click', async () => {
+      const both = pair && together.checked
+      const fileKey = both ? 'youth-young' : streamKey
+      const streams = both ? ['youth', 'young'] : [streamKey]
+      regBtn.disabled = true
+      try {
+        const data = await api('/api/live.php?action=issue-agent', { agentKey: `${fileKey}-pc`, displayName: `${both ? '중고등부·청년부' : label} 방송 PC`, streamKeys: streams }, await token())
+        const config = {
+          apiBaseUrl: API_BASE, agentId: data.agent.agentKey, agentToken: data.agent.agentToken, managedStreamKeys: data.agent.streamKeys,
+          obsUrl: 'ws://127.0.0.1:4444', obsPassword: obsPass.value, agentLabel: `${both ? '중고등부·청년부' : label} 방송 PC`,
+          heartbeatMs: 15000, videoResyncMs: 600000, youtubeAutomationPort: 9223, adminPageUrl: '', streamSettings: {},
+        }
+        const url = URL.createObjectURL(new Blob([JSON.stringify(config, null, 2) + '\n'], { type: 'application/json' }))
+        const a = el('a', { href: url, download: `live-agent.${fileKey}.json` })
+        document.body.append(a); a.click(); a.remove()
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
+        say(regMsg, 'ok', `설정 파일 live-agent.${fileKey}.json 을 받았습니다. 방송 PC에서 ${EXE[fileKey]} 와 같은 폴더에 두고 ${EXE[fileKey]} 를 실행하세요. 이 파일은 방송 PC 전용 열쇠이니 다른 곳에 보내지 마세요.`)
+        obsPass.value = ''
+      } catch (error) { say(regMsg, 'err', `받지 못했습니다: ${error.message}`) }
+      regBtn.disabled = false
     })
     saveBtn.addEventListener('click', async () => {
       if (!channelIdOf(channel.value)) { say(setupMsg, 'err', '유튜브 채널 ID를 찾지 못했습니다. UC로 시작하는 24글자 ID나 /channel/UC… 주소를 넣어 주세요.'); return }
