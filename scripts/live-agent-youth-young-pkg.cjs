@@ -352,9 +352,21 @@ function promptYesNo(question) {
       output: process.stdout,
     })
 
-    rl.question(question, (answer) => {
+    // 2026-10-12: 컴퓨터를 켜면 저절로 켜지는 프로그램이 Y/N 답을 끝없이 기다려 빨간불이었다 → 10초 안에 답이 없으면 「예」
+    let done = false
+    const timer = setTimeout(() => {
+      if (done) return
+      done = true
+      console.log('\n(10초 동안 답이 없어 자동으로 Y)')
       rl.close()
-      resolve(/^y(es)?$/i.test(String(answer || '').trim()))
+      resolve(true)
+    }, 10000)
+    rl.question(question, (answer) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      rl.close()
+      resolve(!/^n(o)?$/i.test(String(answer || '').trim()))
     })
   })
 }
@@ -1106,6 +1118,11 @@ async function runLiveAgent(input) {
         try {
           logInfo(`${streamKey} YouTube API live lookup attempt ${index + 1}/${attempts}`)
           nextVideoId = await fetchCurrentLiveVideoId(apiClient, streamKey, channelId)
+          // 2026-10-12: 서버 API 가 「없음」이면 채널 라이브 페이지도 본다(단일 부서 EXE 와 같게) — 유튜브는 라이브인데 영상을 못 찾아 알림이 안 갔다
+          if (!nextVideoId) {
+            logInfo(`${streamKey} API returned empty, falling back to channel page`)
+            nextVideoId = await fetchCurrentLiveVideoIdFromChannelPage(channelId)
+          }
         } catch {
           logWarn(`${streamKey} YouTube API lookup failed, falling back to channel page`)
           nextVideoId = await fetchCurrentLiveVideoIdFromChannelPage(channelId)
