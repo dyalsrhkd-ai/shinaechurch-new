@@ -725,9 +725,7 @@ async function runLiveAgent(input) {
     activeStreamKey: '',
     message: 'Starting',
   }
-  const settingsRef = doc(db, 'settings', 'main')
-  const controlRefs = Object.fromEntries(streamKeys.map((streamKey) => [streamKey, doc(db, LIVE_STREAM_CONTROL_COLLECTION, streamKey)]))
-  const agentRefs = Object.fromEntries(streamKeys.map((streamKey) => [streamKey, doc(db, LIVE_STREAM_AGENT_COLLECTION, streamKey)]))
+  // 2026-10-12: Firebase 시절 줄 3개(doc/db)가 남아 통합 EXE 가 켜지자마자 멈췄다 — 홈페이지 서버(apiClient)로 옮긴 뒤 쓰지 않는다
 
   let obsConnected = false
   let reconnecting = false

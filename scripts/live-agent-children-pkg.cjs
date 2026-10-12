@@ -46,6 +46,10 @@ function logWarn(message) {
 
 let globalLastStartRequestedAt = 0
 
+// 2026-10-12: 유튜브 「라이브 시작」 누르는 함수(바깥)가 main 안의 변수를 써서 누르는 순간 ReferenceError 가 났다 → 바깥으로
+let lastStudioReadyAt = 0
+let lastGoLiveClickedAt = 0
+
 function logTimeline(label, timestamp = Date.now()) {
   const sinceStart = globalLastStartRequestedAt ? `${Math.max(0, timestamp - globalLastStartRequestedAt)}ms` : 'n/a'
   logInfo(`timeline ${label} => ${new Date(timestamp).toISOString()} (since start: ${sinceStart})`)
@@ -544,8 +548,6 @@ async function main() {
   let currentVideoIdLocked = false
   let lastStartRequestedAt = 0
   let lastObsStartedAt = 0
-  let lastStudioReadyAt = 0
-  let lastGoLiveClickedAt = 0
   let startRecoveryRunning = false
   let pendingStartGoLivePromise = null
   let connectObsPromise = null
