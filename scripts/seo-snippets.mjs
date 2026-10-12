@@ -2,10 +2,11 @@
 // head 에 설명·공유 미리보기·교회 정보(JSON-LD), root 안에 교회 소개 글을 넣는다.
 // root 안의 글은 화면(React)이 뜨면 바로 지워지고 지금 디자인으로 바뀐다. 내용은 홈페이지 화면에 있는 그대로.
 export const SITE = 'http://www.shinaechurch.co.kr/'
-const description = '경기도 의왕시 왕곡동 신애교회(담임목사 우용녀) 홈페이지입니다. 주일예배 1부 오전 9시·2부 오전 11시, 수요·금요·새벽예배 안내와 실시간 설교영상, 교회 소식, 주보를 볼 수 있습니다.'
+const description = '경기도 의왕시 왕곡동 신애교회입니다. 주일예배 오전 9시·11시, 예배 안내와 실시간 설교영상, 교회 소식을 전합니다.' // 네이버 권장 80자 이내
 
 // naver-site-verification 은 요셉님이 네이버 서치어드바이저에서 받은 코드가 있을 때만 넣는다
-export function seoHead(naverCode = '') {
+export const NAVER_CODE = '9e10f597c27e0709bce31e417fd79986ad83a6ec' // 서치어드바이저 소유확인(공개 태그, 비밀 아님)
+export function seoHead(naverCode = NAVER_CODE) {
   const ld = {
     '@context': 'https://schema.org', '@type': 'Church', name: '신애교회', url: SITE,
     logo: `${SITE}uploads/legacy/site-assets/logo.png`, image: `${SITE}images/main1.jpg`,
@@ -59,7 +60,7 @@ export const sitemap = date => `<?xml version="1.0" encoding="UTF-8"?>
 `
 
 // 서버의 index.html 에 넣는다. 이미 넣었으면 그 부분만 바꾼다(여러 번 돌려도 같다)
-export function applySeo(html, naverCode = '') {
+export function applySeo(html, naverCode = NAVER_CODE) {
   let out = html.replace(/<html lang="en">/, '<html lang="ko">')
   out = out.replace(/\n\s*<!-- seo:start -->[\s\S]*?<!-- seo:end -->/, '')
   out = out.replace(/(<title>신애교회<\/title>)/, `$1\n${seoHead(naverCode)}`)

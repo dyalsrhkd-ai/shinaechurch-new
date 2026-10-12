@@ -164,7 +164,7 @@ if (mode === 'dashboard') {
   // 네이버 소유확인 코드는 NAVER_CODE 환경 변수로(없으면 안 넣음)
   const { applySeo, robots, sitemap } = await import('./seo-snippets.mjs')
   const html = ftp('index.html')
-  const changed = applySeo(html, process.env.NAVER_CODE || '')
+  const changed = applySeo(html, process.env.NAVER_CODE || undefined)
   writeFileSync(resolve(backupDir, 'index.seo.html'), changed)
   if (mode === 'seo-stage') {
     ftp('_seo_test.html', `upload-file = ${quote(resolve(backupDir, 'index.seo.html'))}\n`)
