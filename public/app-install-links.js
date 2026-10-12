@@ -9,6 +9,10 @@
   const isEmergency = () => route() === '#/admin/accounts' && new URLSearchParams(location.hash.split('?')[1] || '').get('scope') === 'emergency'
   const isAppView = () => route() === '#/admin/dashboard' && new URLSearchParams(location.hash.split('?')[1] || '').get('view') === 'app'
   let panelLoading = null, unmount = null
+  // 10/12 라이브 방송 간편 화면: #/admin/live-streams/<부서> 에서 원래 본문 대신 live-simple-panel.js
+  const LIVE_KEYS = ['children', 'youth', 'young', 'main']
+  const liveKey = () => { const m = route().match(/^#\/admin\/live-streams\/([\w-]+)$/); return m && LIVE_KEYS.includes(m[1]) ? m[1] : '' }
+  let liveLoading = null, liveUnmount = null, liveMounted = ''
   // 10/8 계정 통일: 홈페이지 로그인 응답의 앱 토큰(appSession)을 이 탭에만 보관 → 앱관리 칸이 다시 로그인하지 않게. 로그아웃하면 지운다
   const SESSION_KEY = 'church-app-session'
   if (window.fetch && !window.fetch.churchWrapped) {
@@ -136,11 +140,11 @@
   // 본문: ?view=app 이면 원래 본문을 숨기고 앱 칸, 아니면 되돌린다
   function attachAppView() {
     const main = document.querySelector('main')
-    const content = main?.querySelector(':scope > div:not([data-church-app-host]):nth-child(2)')
+    const content = main?.querySelector(':scope > div:not([data-church-app-host]):not([data-church-live-host]):nth-child(2)')
     const existing = document.querySelector('[data-church-app-host]')
     if (!isAppView() || !main || !content) {
       if (existing) { unmount?.(); unmount = null; existing.remove() }
-      for (const node of document.querySelectorAll('[data-church-hidden]')) {
+      for (const node of document.querySelectorAll('[data-church-hidden="app"]')) {
         node.style.display = node.dataset.churchDisplay || ''
         delete node.dataset.churchHidden; delete node.dataset.churchDisplay
       }
@@ -148,7 +152,7 @@
     }
     if (!content.dataset.churchHidden) {
       content.dataset.churchDisplay = content.style.display
-      content.dataset.churchHidden = '1'
+      content.dataset.churchHidden = 'app'
       content.style.display = 'none'
     }
     if (existing) return
@@ -160,6 +164,47 @@
     loadPanel()
       .then(() => { if (host.isConnected) unmount = window.ChurchAppAdmin.mount(host) })
       .catch(() => { host.textContent = '앱관리 화면을 불러오지 못했습니다. 새로고침해 주세요.' })
+  }
+
+  // 라이브 방송: 원래 본문(입력 7칸)을 숨기고 간편 화면. 다른 주소로 가면 원래대로
+  const loadLive = () => liveLoading || (liveLoading = new Promise((done, fail) => {
+    if (window.ChurchLiveSimple) return done()
+    const script = document.createElement('script')
+    script.src = `/live-simple-panel.js?v=${encodeURIComponent(VERSION)}`
+    script.onload = done
+    script.onerror = () => { liveLoading = null; fail() }
+    document.head.append(script)
+  }))
+  function attachLiveView() {
+    const key = liveKey()
+    const main = document.querySelector('main')
+    const content = main?.querySelector(':scope > div:not([data-church-app-host]):not([data-church-live-host]):nth-child(2)')
+    let host = document.querySelector('[data-church-live-host]')
+    if (!key || !main || !content) {
+      if (host) { liveUnmount?.(); liveUnmount = null; liveMounted = ''; host.remove() }
+      for (const node of document.querySelectorAll('[data-church-hidden="live"]')) {
+        node.style.display = node.dataset.churchDisplay || ''
+        delete node.dataset.churchHidden; delete node.dataset.churchDisplay
+      }
+      return
+    }
+    if (!content.dataset.churchHidden) {
+      content.dataset.churchDisplay = content.style.display
+      content.dataset.churchHidden = 'live'
+      content.style.display = 'none'
+    }
+    if (host && liveMounted === key) return
+    if (host) { liveUnmount?.(); liveUnmount = null }
+    else {
+      host = document.createElement('div')
+      host.setAttribute('data-church-live-host', '')
+      host.style.cssText = 'padding:24px 32px;min-width:0;'
+      content.after(host)
+    }
+    liveMounted = key
+    loadLive()
+      .then(() => { if (host.isConnected && liveMounted === key) liveUnmount = window.ChurchLiveSimple.mount(host, key) })
+      .catch(() => { host.textContent = '방송 화면을 불러오지 못했습니다. 새로고침해 주세요.' })
   }
 
   // 관리자 계정 설정 = 앱 관리자(연동), 비상용 계정 관리 = 홈페이지 전용 계정(10/8)
@@ -216,7 +261,7 @@
     setTimeout(() => { go(target); setTimeout(() => { delete document.documentElement.dataset.churchSwitching; update() }, 60) }, 30)
   }
 
-  function update() { reopenAccounts(); attachLinks(); attachMenu(); attachAppView(); attachAccountsNote() }
+  function update() { reopenAccounts(); attachLinks(); attachMenu(); attachAppView(); attachLiveView(); attachAccountsNote() }
   new MutationObserver(update).observe(document.body, { childList: true, subtree: true })
   window.addEventListener('hashchange', update)
   update()

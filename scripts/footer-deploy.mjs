@@ -146,11 +146,15 @@ if (mode === 'dashboard') {
   ftp('app-admin-panel.js', `upload-file = ${quote(resolve('public/app-admin-panel.js'))}
 `)
   if (ftp('app-admin-panel.js') !== readFileSync('public/app-admin-panel.js', 'utf8')) throw Error('Panel script mismatch')
+  // 10/12 라이브 방송 간편 화면도 같은 꼬리표로
+  ftp('live-simple-panel.js', `upload-file = ${quote(resolve('public/live-simple-panel.js'))}
+`)
+  if (ftp('live-simple-panel.js') !== readFileSync('public/live-simple-panel.js', 'utf8')) throw Error('Live panel script mismatch')
   ftp('app-install-links-20261002.js', `upload-file = ${quote(resolve('public/app-install-links.js'))}
 `)
   if (ftp('app-install-links-20261002.js') !== readFileSync('public/app-install-links.js', 'utf8')) throw Error('Dashboard script mismatch')
   // 꼬리표는 두 파일 내용에서 만든다 — 같은 꼬리표로 다시 올리면 브라우저가 옛 파일을 1년 동안 쓴다(10/8 실제로 겪음)
-  const version = 'app-admin-' + createHash('sha256').update(readFileSync('public/app-install-links.js')).update(readFileSync('public/app-admin-panel.js')).digest('hex').slice(0, 10)
+  const version = 'app-admin-' + createHash('sha256').update(readFileSync('public/app-install-links.js')).update(readFileSync('public/app-admin-panel.js')).update(readFileSync('public/live-simple-panel.js')).digest('hex').slice(0, 10)
   const changed = html.replace(tag, `<script defer src="/app-install-links-20261002.js?v=${version}"></script>`)
   writeFileSync(resolve(backupDir, 'index.app-admin.html'), changed)
   if (changed !== html) {
