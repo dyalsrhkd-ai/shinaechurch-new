@@ -1,11 +1,9 @@
 <?php
-declare(strict_types=1);
 
 require_once __DIR__ . '/_security.php';
 require_once __DIR__ . '/_live_service.php';
 
-function require_live_stream_key(array $input): string
-{
+function require_live_stream_key(array $input) {
     $key = isset($_GET['streamKey']) ? trim((string) $_GET['streamKey']) : trim((string) (isset($input['streamKey']) ? $input['streamKey'] : ''));
     if (!in_array($key, allowed_live_stream_keys(), true)) {
         api_error('Unknown live stream key.', 404, 'UNKNOWN_LIVE_STREAM');
@@ -13,8 +11,7 @@ function require_live_stream_key(array $input): string
     return $key;
 }
 
-function read_live_setting(PDO $pdo, string $streamKey): array
-{
+function read_live_setting(PDO $pdo, $streamKey) {
     $statement = $pdo->prepare('SELECT data_json FROM live_stream_settings WHERE setting_key = :setting_key');
     $statement->execute(array('setting_key' => $streamKey));
     $json = $statement->fetchColumn();
@@ -22,10 +19,9 @@ function read_live_setting(PDO $pdo, string $streamKey): array
     return normalize_live_setting($streamKey, is_array($data) ? $data : array());
 }
 
-function read_live_agent_state(PDO $pdo, string $streamKey): ?array
-{
+function read_live_agent_state(PDO $pdo, $streamKey) {
     $rows = $pdo->query(
-        "SELECT agent_key, display_name, managed_keys_json, status_key, status_json, current_video_id, last_seen_at " .
+        "SELECT agent_key, display_name, managed_keys_json, status_key, status_json, current_video_id, last_seen_at, TIMESTAMPDIFF(SECOND, last_seen_at, NOW()) AS seen_ago " .
         "FROM live_stream_agents WHERE active_yn = 'Y' ORDER BY last_seen_at DESC, id"
     )->fetchAll();
     foreach ($rows as $row) {
@@ -37,13 +33,13 @@ function read_live_agent_state(PDO $pdo, string $streamKey): ?array
         $status['status'] = (string) $row['status_key'];
         $status['currentVideoId'] = normalize_youtube_video_id((string) $row['current_video_id']);
         $status['lastSeenAt'] = $row['last_seen_at'];
+        $status['seenAgo'] = $row['seen_ago'] === null ? null : (int) $row['seen_ago']; // 2026-10-12 간편 화면 신호등(60초 안이면 켜짐)
         return $status;
     }
     return null;
 }
 
-function read_latest_live_command(PDO $pdo, string $streamKey): ?array
-{
+function read_latest_live_command(PDO $pdo, $streamKey) {
     $statement = $pdo->prepare(
         'SELECT request_key, command_type, status_key, claimed_by_agent_key, completed_at, error_message, created_at ' .
         'FROM live_stream_commands WHERE stream_key = :stream_key ORDER BY id DESC LIMIT 1'
@@ -62,20 +58,25 @@ function read_latest_live_command(PDO $pdo, string $streamKey): ?array
     );
 }
 
-function has_live_access(string $streamKey): bool
-{
+function has_live_access($streamKey) {
     ensure_session_started();
     $expiresAt = isset($_SESSION['live_access'][$streamKey]) ? (int) $_SESSION['live_access'][$streamKey] : 0;
     return $expiresAt > time();
 }
 
-function public_live_payload(PDO $pdo, string $streamKey): array
-{
+function public_live_payload(PDO $pdo, $streamKey) {
     $setting = read_live_setting($pdo, $streamKey);
     $setting['_accessRequired'] = $setting['accessPassword'] !== '' || $setting['accessKey'] !== '';
     $authorized = has_live_access($streamKey);
     $canView = can_view_live_setting($setting, $authorized);
-    $agent = $canView ? read_live_agent_state($pdo, $streamKey) : null;
+    // 교인앱(2026-10-06): 비밀번호 걸린 방송도 「지금 방송 중인지」만 공개한다(영상 주소·에이전트 정보는 그대로 숨김)
+    $fullAgent = read_live_agent_state($pdo, $streamKey);
+    $latestCommand = read_latest_live_command($pdo, $streamKey);
+    $stopPending = is_array($latestCommand) && in_array((string) $latestCommand['status'], array('pending', 'processing'), true)
+        && (string) $latestCommand['desiredState'] === 'stop';
+    $onAir = !$stopPending && trim((string) $setting['currentVideoId']) !== ''
+        && ((is_array($fullAgent) && !empty($fullAgent['streamActive'])) || !empty($setting['enabled']));
+    $agent = $canView ? $fullAgent : null;
     if (is_array($agent)) {
         unset($agent['agentKey'], $agent['message']);
     }
@@ -83,11 +84,12 @@ function public_live_payload(PDO $pdo, string $streamKey): array
         'streamKey' => $streamKey,
         'setting' => public_live_setting($setting, $authorized),
         'agent' => $agent,
-        'command' => $canView ? read_latest_live_command($pdo, $streamKey) : null,
+        'command' => $canView ? $latestCommand : null,
+        'onAir' => $onAir,
     );
 }
 
-run_api(function (): void {
+run_api(function () {
     $input = json_input();
     $action = request_action($input);
     $pdo = db();
@@ -173,7 +175,7 @@ run_api(function (): void {
 
     if ($action === 'issue-agent') {
         $repository = array(
-            'upsertAgent' => function (array $agent) use ($pdo): void {
+            'upsertAgent' => function (array $agent) use ($pdo) {
                 $statement = $pdo->prepare(
                     'INSERT INTO live_stream_agents (agent_key, display_name, managed_keys_json, token_hash) ' .
                     'VALUES (:agent_key, :display_name, :managed_keys_json, :token_hash) ' .

@@ -9,6 +9,7 @@ const readline = require('node:readline')
 const { chromium } = require('playwright-core')
 const OBSWebSocket = require('./obs-compat.cjs')
 const { createLiveAgentApiClient } = require('./live-agent-api-client.cjs')
+const { readChromeProfiles, pickChromeProfile } = require('./chrome-profiles.cjs')
 
 const DEFAULT_HEARTBEAT_MS = 15000
 const DEFAULT_VIDEO_RESYNC_MS = 600000
@@ -477,9 +478,10 @@ function resolveRuntimeConfig(agentId, streamKeys, options = {}) {
   if (streamKeys.some((key) => !managedStreamKeys.includes(key))) {
     throw new Error(`managedStreamKeys must include ${streamKeys.join(', ')}.`)
   }
+  const apiBaseUrl = String(config.apiBaseUrl).trim().replace(/\/+$/, '')
 
   return {
-    apiBaseUrl: String(config.apiBaseUrl).trim(),
+    apiBaseUrl,
     agentId: String(config.agentId).trim(),
     agentToken: String(config.agentToken).trim(),
     obsUrl: String(config.obsUrl).trim(),
@@ -488,7 +490,7 @@ function resolveRuntimeConfig(agentId, streamKeys, options = {}) {
     heartbeatMs: Number(config.heartbeatMs) || DEFAULT_HEARTBEAT_MS,
     videoResyncMs: Number(config.videoResyncMs) || DEFAULT_VIDEO_RESYNC_MS,
     youtubeAutomationPort: Number(config.youtubeAutomationPort) || Number(options.youtubeAutomationPort) || DEFAULT_YOUTUBE_AUTOMATION_PORT,
-    adminPageUrl: String(config.adminPageUrl || DEFAULT_ADMIN_PAGE_URL).trim(),
+    adminPageUrl: String(config.adminPageUrl || DEFAULT_ADMIN_PAGE_URL || `${apiBaseUrl}/#/admin/live-streams/${streamKeys[0]}`).trim(),
     streamSettings: config.streamSettings && typeof config.streamSettings === 'object' ? config.streamSettings : {},
   }
 }
@@ -812,8 +814,10 @@ async function runLiveAgent(input) {
   async function getYoutubeAutomationProfileName(streamKey) {
     const settings = await getSettingsSnapshot()
     const stream = settings.liveStreams && settings.liveStreams[streamKey] ? settings.liveStreams[streamKey] : {}
-    const profileName = String(stream.youtubeChromeProfileName || '').trim() || 'Default'
-    logInfo(`${streamKey} youtubeChromeProfileName => ${profileName}`)
+    // 10/12: 폴더명을 몰라도 된다 — 저장값이 없거나 틀리면 방송 PC의 크롬 프로필에서 알아서 고른다
+    const wanted = String(stream.youtubeChromeProfileName || '').trim()
+    const profileName = pickChromeProfile(wanted, readChromeProfiles(getChromeUserDataRoot()))
+    logInfo(`${streamKey} youtubeChromeProfileName => ${profileName}${wanted && wanted !== profileName ? ` (저장값 ${wanted} 없음)` : ''}`)
     return profileName
   }
 
@@ -1002,6 +1006,7 @@ async function runLiveAgent(input) {
       agentLabel: runtimeConfig.agentLabel,
       obsConnected,
       activeStreamKey,
+      chromeProfiles: readChromeProfiles(getChromeUserDataRoot()).profiles,
       ...extra,
     }
     return apiClient.heartbeat(agentStatus)

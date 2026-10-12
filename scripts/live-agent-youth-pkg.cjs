@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process')
 const { chromium } = require('playwright-core')
 const OBSWebSocket = require('./obs-compat.cjs')
 const { createLiveAgentApiClient } = require('./live-agent-api-client.cjs')
+const { readChromeProfiles, pickChromeProfile } = require('./chrome-profiles.cjs')
 
 const STREAM_KEY = 'youth'
 const YOUTUBE_AUTOMATION_PORT = 9223
@@ -554,6 +555,7 @@ async function main() {
       ...agentStatus,
       agentLabel: runtimeConfig.agentLabel,
       obsConnected,
+      chromeProfiles: readChromeProfiles(getChromeUserDataRoot()).profiles,
       ...extra,
     }
     return apiClient.heartbeat(agentStatus)
@@ -576,8 +578,10 @@ async function main() {
   }
 
   async function getYoutubeAutomationProfileName() {
-    const profileName = String(liveSettings[STREAM_KEY]?.youtubeChromeProfileName || '').trim() || 'Default'
-    logInfo(`youtubeChromeProfileName => ${profileName}`)
+    // 10/12: 폴더명을 몰라도 된다 — 저장값이 없거나 틀리면 방송 PC의 크롬 프로필에서 알아서 고른다
+    const wanted = String(liveSettings[STREAM_KEY]?.youtubeChromeProfileName || '').trim()
+    const profileName = pickChromeProfile(wanted, readChromeProfiles(getChromeUserDataRoot()))
+    logInfo(`youtubeChromeProfileName => ${profileName}${wanted && wanted !== profileName ? ` (저장값 ${wanted} 없음)` : ''}`)
     return profileName
   }
 

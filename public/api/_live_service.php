@@ -1,13 +1,12 @@
 <?php
-declare(strict_types=1);
 
-function allowed_live_stream_keys(): array
-{
+require_once __DIR__ . '/_security.php';
+
+function allowed_live_stream_keys() {
     return array('children', 'youth', 'young', 'main');
 }
 
-function normalize_agent_stream_keys(array $keys): array
-{
+function normalize_agent_stream_keys(array $keys) {
     $normalized = array();
     foreach ($keys as $key) {
         $key = trim((string) $key);
@@ -24,8 +23,7 @@ function normalize_agent_stream_keys(array $keys): array
     return $normalized;
 }
 
-function validate_live_command(string $streamKey, string $desiredState): string
-{
+function validate_live_command($streamKey, $desiredState) {
     if (!in_array($streamKey, allowed_live_stream_keys(), true)) {
         return 'Unknown live stream key.';
     }
@@ -35,8 +33,7 @@ function validate_live_command(string $streamKey, string $desiredState): string
     return '';
 }
 
-function normalize_live_status(array $status): array
-{
+function normalize_live_status(array $status) {
     $activeKey = isset($status['activeStreamKey']) ? trim((string) $status['activeStreamKey']) : '';
     if ($activeKey !== '' && !in_array($activeKey, allowed_live_stream_keys(), true)) {
         $activeKey = '';
@@ -47,11 +44,34 @@ function normalize_live_status(array $status): array
         'streamActive' => !empty($status['streamActive']),
         'activeStreamKey' => $activeKey,
         'message' => substr(trim((string) (isset($status['message']) ? $status['message'] : '')), 0, 500),
+        'chromeProfiles' => normalize_chrome_profiles(isset($status['chromeProfiles']) ? $status['chromeProfiles'] : array()),
     );
 }
 
-function live_status_for_stream(array $status, string $streamKey): array
-{
+// 한글이 바이트 중간에서 잘리면 json_encode 가 실패한다 → 글자 단위로 자른다
+function live_cut_text($value, $length) {
+    $value = trim((string) $value);
+    return function_exists('mb_substr') ? mb_substr($value, 0, $length, 'UTF-8') : substr($value, 0, $length);
+}
+
+// 2026-10-12 방송 PC가 보낸 크롬 프로필 목록(관리자 화면에서 「유튜브 방송 계정」으로 고른다). 최대 10개, 글자 수 제한
+function normalize_chrome_profiles($list) {
+    $out = array();
+    if (!is_array($list)) return $out;
+    foreach ($list as $item) {
+        if (!is_array($item) || count($out) >= 10) continue;
+        $dir = trim((string) (isset($item['dir']) ? $item['dir'] : ''));
+        if ($dir === '' || strlen($dir) > 60 || preg_match('#[\\\\/\x00-\x1F]|\.\.#', $dir)) continue;
+        $out[] = array(
+            'dir' => $dir,
+            'name' => live_cut_text(isset($item['name']) ? $item['name'] : '', 60),
+            'email' => live_cut_text(isset($item['email']) ? $item['email'] : '', 120),
+        );
+    }
+    return $out;
+}
+
+function live_status_for_stream(array $status, $streamKey) {
     $normalized = normalize_live_status($status);
     if ($normalized['activeStreamKey'] !== '' && $normalized['activeStreamKey'] !== $streamKey) {
         $normalized['streamActive'] = false;
@@ -59,8 +79,7 @@ function live_status_for_stream(array $status, string $streamKey): array
     return $normalized;
 }
 
-function agent_managed_stream_keys(array $agent): array
-{
+function agent_managed_stream_keys(array $agent) {
     $value = isset($agent['managed_keys_json']) ? $agent['managed_keys_json'] : array();
     if (is_string($value)) {
         $value = json_decode($value, true);
@@ -75,19 +94,18 @@ function agent_managed_stream_keys(array $agent): array
     }
 }
 
-function agent_can_manage(array $agent, string $streamKey): bool
-{
+function agent_can_manage(array $agent, $streamKey) {
     return in_array($streamKey, agent_managed_stream_keys($agent), true);
 }
 
 function issue_live_agent(
     array $repository,
-    string $agentKey,
-    string $displayName,
+    $agentKey,
+    $displayName,
     array $streamKeys,
     callable $tokenFactory,
     callable $tokenHasher
-): array {
+) {
     $agentKey = trim($agentKey);
     $displayName = trim($displayName);
     if (preg_match('/\A[A-Za-z0-9_-]{3,64}\z/D', $agentKey) !== 1) {
@@ -113,9 +131,9 @@ function issue_live_agent(
 function claim_live_command(
     array $repository,
     array $agent,
-    string $staleBefore,
-    string $claimedAt
-): ?array {
+    $staleBefore,
+    $claimedAt
+) {
     $keys = agent_managed_stream_keys($agent);
     if ($keys === array()) {
         throw new InvalidArgumentException('Agent has no managed stream keys.');
@@ -127,10 +145,10 @@ function claim_live_command(
 function complete_live_command(
     array $repository,
     array $agent,
-    string $requestKey,
-    bool $ok,
+    $requestKey,
+    $ok,
     array $result
-): array {
+) {
     $command = $repository['findCommand']($requestKey);
     if (!is_array($command)) {
         return array('ok' => false, 'message' => 'Live command not found.');
@@ -149,15 +167,13 @@ function complete_live_command(
     return array('ok' => true, 'duplicate' => false);
 }
 
-function record_live_heartbeat(array $repository, array $agent, array $status): array
-{
+function record_live_heartbeat(array $repository, array $agent, array $status) {
     $normalized = normalize_live_status($status);
     $repository['heartbeat']((string) $agent['agent_key'], $normalized);
     return $normalized;
 }
 
-function default_live_setting(string $streamKey): array
-{
+function default_live_setting($streamKey) {
     $titles = array(
         'children' => '아동부 실시간 예배 영상',
         'youth' => '중고등부 실시간 예배 영상',
@@ -177,14 +193,12 @@ function default_live_setting(string $streamKey): array
     );
 }
 
-function normalize_youtube_video_id(string $value): string
-{
+function normalize_youtube_video_id($value) {
     $value = trim($value);
     return preg_match('/\A[A-Za-z0-9_-]{11}\z/D', $value) === 1 ? $value : '';
 }
 
-function normalize_live_setting(string $streamKey, array $input): array
-{
+function normalize_live_setting($streamKey, array $input) {
     if (!in_array($streamKey, allowed_live_stream_keys(), true)) {
         throw new InvalidArgumentException('Unknown live stream key.');
     }
@@ -199,8 +213,7 @@ function normalize_live_setting(string $streamKey, array $input): array
     return $setting;
 }
 
-function public_live_setting(array $setting, bool $authorized): array
-{
+function public_live_setting(array $setting, $authorized) {
     unset($setting['accessPassword'], $setting['accessKey'], $setting['youtubeChromeProfileName']);
     $setting['accessRequired'] = !empty($setting['_accessRequired']);
     unset($setting['_accessRequired']);
@@ -212,14 +225,12 @@ function public_live_setting(array $setting, bool $authorized): array
     return $setting;
 }
 
-function can_view_live_setting(array $setting, bool $authorized): bool
-{
+function can_view_live_setting(array $setting, $authorized) {
     return $authorized || empty($setting['_accessRequired']);
 }
 
-function live_request_key(): string
-{
-    $bytes = random_bytes(16);
+function live_request_key() {
+    $bytes = secure_random_bytes(16);
     $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
     $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
     $hex = bin2hex($bytes);
