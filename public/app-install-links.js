@@ -197,14 +197,26 @@
   }
 
   // 같은 화면(관리자 계정)에서 연동 ↔ 비상용으로 바뀌면 목록을 새로 받도록 다시 연다(화면이 주소 뒷부분만 바뀌면 다시 안 부른다)
+  // 10/12 「바로 안 바뀐다」: 페이지 전체 새로고침(1~2초 하얀 화면) 대신 대시보드를 한 번 거쳐 그 화면만 다시 연다. 그사이 본문은 숨긴다
+  const switchStyle = document.createElement('style')
+  switchStyle.textContent = 'html[data-church-switching] main{visibility:hidden}'
+  document.head.append(switchStyle)
+  const go = hash => { history.replaceState(history.state, '', hash); window.dispatchEvent(new PopStateEvent('popstate', { state: history.state })) }
+  // 원래 메뉴(React 링크)는 주소를 바꿔도 hashchange 가 안 온다 → 화면이 바뀔 때마다(update) 같이 본다
   let lastAccounts = route() === '#/admin/accounts' ? String(isEmergency()) : null
-  window.addEventListener('hashchange', () => {
+  function reopenAccounts() {
+    if (document.documentElement.dataset.churchSwitching) return
     const now = route() === '#/admin/accounts' ? String(isEmergency()) : null
-    if (lastAccounts !== null && now !== null && now !== lastAccounts) location.reload()
+    const changed = lastAccounts !== null && now !== null && now !== lastAccounts
     lastAccounts = now
-  })
+    if (!changed) return
+    const target = location.hash
+    document.documentElement.dataset.churchSwitching = '1'
+    go('#/admin/dashboard')
+    setTimeout(() => { go(target); setTimeout(() => { delete document.documentElement.dataset.churchSwitching; update() }, 60) }, 30)
+  }
 
-  function update() { attachLinks(); attachMenu(); attachAppView(); attachAccountsNote() }
+  function update() { reopenAccounts(); attachLinks(); attachMenu(); attachAppView(); attachAccountsNote() }
   new MutationObserver(update).observe(document.body, { childList: true, subtree: true })
   window.addEventListener('hashchange', update)
   update()

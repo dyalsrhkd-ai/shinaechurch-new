@@ -103,9 +103,22 @@ try {
   const emergencyMenu = page.locator('aside [data-church-emergency-menu] a')
   assert.match(await emergencyMenu.textContent(), /비상용 계정 관리/)
   const scoped = page.waitForRequest(r => r.url().includes('/api/admin-users.php') && r.url().includes('scope=emergency'), { timeout: 15000 })
+  // 10/12 요셉님: 「바로 안 바뀐다」 — 페이지 전체를 새로고침하지 말고 그 화면만 다시 열어야 한다
+  await page.evaluate(() => { window.__noReload = 1 })
   await emergencyMenu.click()
   await scoped
   await page.waitForTimeout(1500)
+  assert.match(await page.locator('#church-accounts-note').textContent(), /비상용 계정/)
+  assert.equal(await page.evaluate(() => window.__noReload), 1, '비상용 계정 관리로 갈 때 새로고침 없음')
+  assert.equal(await page.evaluate(() => location.hash), '#/admin/accounts?scope=emergency', '주소 그대로')
+  // 다시 관리자 계정 설정으로: 연동 목록을 새로 받는다(scope 없이)
+  const unscoped = page.waitForRequest(r => r.url().includes('/api/admin-users.php') && !r.url().includes('scope=emergency'), { timeout: 15000 })
+  await page.locator('aside a[href="#/admin/accounts"]').click()
+  await unscoped
+  await page.waitForTimeout(800)
+  assert.match(await page.locator('#church-accounts-note').textContent(), /연동/)
+  assert.equal(await page.evaluate(() => window.__noReload), 1, '관리자 계정 설정으로 돌아갈 때도 새로고침 없음')
+  await page.locator('aside [data-church-emergency-menu] a').click(); await page.waitForTimeout(1500)
   assert.match(await page.locator('#church-accounts-note').textContent(), /비상용 계정/)
   await page.screenshot({ path: 'dist-footer-backup/admin-emergency-accounts.png' })
   // 로그아웃하면 보관한 앱 토큰을 지운다
