@@ -171,7 +171,8 @@ if (mode === 'dashboard') {
     if (ftp('_seo_test.html') !== changed) throw Error('stage mismatch')
     console.log('Staged at /_seo_test.html')
   } else {
-    writeFileSync(resolve(backupDir, 'index.before-seo.html'), html)
+    // 처음 넣기 전 원본만 백업(다시 돌려도 원본을 덮지 않는다)
+    if (!html.includes('<!-- seo:start -->')) writeFileSync(resolve(backupDir, 'index.before-seo.html'), html)
     const files = { 'robots.txt': robots, 'sitemap.xml': sitemap(new Date().toISOString().slice(0, 10)) }
     for (const [name, body] of Object.entries(files)) {
       writeFileSync(resolve(backupDir, name), body)
