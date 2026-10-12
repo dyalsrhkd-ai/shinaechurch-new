@@ -159,6 +159,34 @@ if (mode === 'dashboard') {
     if (ftp('index.html') !== changed) throw Error('Homepage index mismatch; backup available')
   }
   console.log('Deployed app-admin: sidebar menu + app panel; backups in dist-footer-backup/.')
+} else if (mode === 'seo' || mode === 'seo-stage') {
+  // 2026-10-12 네이버 검색 노출(scripts/seo-snippets.mjs). seo-stage 는 _seo_test.html 로만 올려 화면을 먼저 본다
+  // 네이버 소유확인 코드는 NAVER_CODE 환경 변수로(없으면 안 넣음)
+  const { applySeo, robots, sitemap } = await import('./seo-snippets.mjs')
+  const html = ftp('index.html')
+  const changed = applySeo(html, process.env.NAVER_CODE || '')
+  writeFileSync(resolve(backupDir, 'index.seo.html'), changed)
+  if (mode === 'seo-stage') {
+    ftp('_seo_test.html', `upload-file = ${quote(resolve(backupDir, 'index.seo.html'))}\n`)
+    if (ftp('_seo_test.html') !== changed) throw Error('stage mismatch')
+    console.log('Staged at /_seo_test.html')
+  } else {
+    writeFileSync(resolve(backupDir, 'index.before-seo.html'), html)
+    const files = { 'robots.txt': robots, 'sitemap.xml': sitemap(new Date().toISOString().slice(0, 10)) }
+    for (const [name, body] of Object.entries(files)) {
+      writeFileSync(resolve(backupDir, name), body)
+      ftp(name, `upload-file = ${quote(resolve(backupDir, name))}\n`)
+      if (ftp(name) !== body) throw Error(`${name} mismatch`)
+    }
+    if (changed !== html) {
+      ftp('index.html', `upload-file = ${quote(resolve(backupDir, 'index.seo.html'))}\n`)
+      if (ftp('index.html') !== changed) throw Error('Homepage index mismatch; backup available')
+    }
+    console.log('Deployed seo: index head/body, robots.txt, sitemap.xml; backup index.before-seo.html')
+  }
+} else if (mode === 'seo-unstage') {
+  ftp('', 'quote = "DELE _seo_test.html"\n')
+  console.log('Removed /_seo_test.html')
 } else if (mode === 'restore-live') {
   // 비상: live.php 를 app-v8 이전으로 되돌린다
   ftp('api/live.php', `upload-file = ${quote(resolve(backupDir, 'live.before-app-v8.php'))}
