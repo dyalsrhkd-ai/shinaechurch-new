@@ -873,7 +873,8 @@ async function runLiveAgent(input) {
       browser = await chromium.connectOverCDP(wsEndpoint)
       const context = browser.contexts()[0]
       const pages = context?.pages?.() || []
-      const existingPage = pages.find((page) => String(page.url() || '').startsWith(studioUrl))
+      // 2026-10-12: 유튜브가 주소를 바꿔(…/livestreaming 등) 같은 창을 못 알아보고 새 창을 또 열었다 → 채널 기준으로 찾는다
+      const existingPage = pages.find((page) => String(page.url() || '').includes(`studio.youtube.com/channel/${channelId}`))
       const page = existingPage || await context.newPage()
       if (!String(page.url() || '').startsWith(studioUrl)) {
         await page.goto(studioUrl, { waitUntil: 'domcontentloaded', timeout: 60000 })
@@ -892,8 +893,13 @@ async function runLiveAgent(input) {
   }
 
   async function warmUpYoutubeStudioDashboards() {
+    // 중고등부·청년부가 같은 유튜브 채널이면 스튜디오 창은 하나만(10/12 요셉님: 창이 왜 2개나 떠?)
+    const opened = new Set()
     for (const streamKey of streamKeys) {
       try {
+        const channelId = extractYoutubeChannelId(await getYoutubeTarget(streamKey))
+        if (channelId && opened.has(channelId)) continue
+        if (channelId) opened.add(channelId)
         await openYoutubeStudioDashboard(streamKey)
       } catch (error) {
         logWarn(`${streamKey} YouTube Studio dashboard warm-up failed: ${error.message}`)

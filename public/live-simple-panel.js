@@ -108,7 +108,7 @@
       el('h3', { textContent: '새 방송 PC 준비' }),
       el('p', { className: 'note', textContent: `① 방송 PC에 크롬·OBS를 깔고 크롬에서 교회 유튜브 계정으로 로그인 ② 아래에서 설정 파일 받기 ③ 프로그램(EXE)을 받아 설정 파일과 같은 폴더에 두고 실행. 다시 받으면 전에 받은 설정 파일은 못 쓰게 됩니다(방송 PC는 부서마다 한 대만 켜 두세요).` }),
       pair ? el('label', { className: 'check' }, together, '중고등부·청년부를 이 컴퓨터 한 대로 방송') : null,
-      el('div', { className: 'field' }, el('label', { textContent: 'OBS 비밀번호' }, el('span', { className: 'hint', textContent: '방송 PC의 OBS에 정한 것' })), obsPass),
+      el('div', { className: 'field' }, el('label', { textContent: 'OBS 비밀번호' }, el('span', { className: 'hint', textContent: '방송 PC의 OBS에 정한 것 — OBS 「연결 정보 보기」에서 복사하면 @ 가 %40 으로 보이니 @ 로 바꿔 넣으세요' })), obsPass),
       regBtn, regMsg,
       el('p', { className: 'note' }, '프로그램(EXE) 받는 곳: ', el('a', { href: DOWNLOAD_PAGE, target: '_blank', rel: 'noopener', textContent: '방송 PC 프로그램 다운로드' })))
     const setup = el('details', { className: 'card' },
