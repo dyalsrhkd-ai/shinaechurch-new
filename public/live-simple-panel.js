@@ -168,7 +168,9 @@
       else { light.className = 'light off'; light.lastChild.textContent = '방송 PC가 꺼져 있습니다. 방송실 컴퓨터를 켜 주세요.' }
 
       const ready = Boolean(channelIdOf(s.youtubeUrl))
-      const pending = cmd && (cmd.status === 'pending' || cmd.status === 'processing') && cmd.desiredState
+      // 10분 지난 명령은 방송 PC가 받지 않는다(서버도 같은 규칙) — 8/5 남은 「시작」 때문에 계속 「켜는 중」이었다
+      const age = cmd && cmd.requestedAt ? Date.now() - Date.parse(String(cmd.requestedAt).replace(' ', 'T') + '+09:00') : 0
+      const pending = cmd && (cmd.status === 'pending' || cmd.status === 'processing') && age < 10 * 60 * 1000 && cmd.desiredState
       big.classList.remove('stop', 'confirm')
       if (!ready) { big.textContent = '처음 설정을 먼저 해 주세요'; big.disabled = true; setup.open = true }
       else if (pending) { big.textContent = pending === 'start' ? '방송을 켜는 중…' : '방송을 끄는 중…'; big.disabled = true }

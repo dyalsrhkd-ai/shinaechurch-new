@@ -30,7 +30,7 @@ async function open(viewport, hash = '#/admin/live-streams/main') {
       if (action === 'save') { state.setting = { ...body.setting }; return route.fulfill({ json: { ok: true, setting: state.setting } }) }
       if (action === 'issue-agent') return route.fulfill({ status: 201, json: { ok: true, agent: { agentKey: body.agentKey, agentToken: 'issued-token-1234567890abcdef', streamKeys: body.streamKeys } } })
       if (action === 'command') {
-        state.command = { desiredState: body.desiredState, status: 'pending', error: '' }
+        state.command = { desiredState: body.desiredState, status: 'pending', error: '', requestedAt: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 19).replace('T', ' ') }
         // 방송 PC 흉내: 1초 뒤 받음, 2초 뒤 OBS, 3초 뒤 유튜브 영상
         setTimeout(() => { state.command.status = 'completed'; if (body.desiredState === 'stop') state.agent.streamActive = false }, 1000)
         if (body.desiredState === 'start') {
@@ -53,6 +53,12 @@ const big = page => page.locator('.cls .big')
 const light = page => page.locator('.cls .light')
 
 try {
+  // 0) 두 달 전에 남은 「시작」 명령은 무시(켜는 중에 멈추지 않는다)
+  state = base(); state.command = { desiredState: 'start', status: 'pending', error: '', requestedAt: '2026-08-05 17:50:37' }
+  let old = await open({ width: 1440, height: 900 })
+  assert.match(await old.locator('.cls .big').textContent(), /방송 시작/, '오래된 명령은 무시')
+  await old.context().close().catch(() => {})
+
   // 1) 방송 PC 꺼짐: 빨간불, 시작 못 함
   state = base(); state.agent.seenAgo = 900
   let page = await open({ width: 1440, height: 900 })

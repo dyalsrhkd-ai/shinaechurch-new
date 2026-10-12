@@ -1,19 +1,16 @@
 <?php
-declare(strict_types=1);
 
 require_once __DIR__ . '/_security.php';
 require_once __DIR__ . '/_live_service.php';
 
-function bearer_agent_token(): string
-{
+function bearer_agent_token() {
     $header = isset($_SERVER['HTTP_AUTHORIZATION']) ? (string) $_SERVER['HTTP_AUTHORIZATION'] :
         (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) ? (string) $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] : '');
     if (preg_match('/\ABearer\s+(.+)\z/i', trim($header), $matches) !== 1) return '';
     return trim((string) $matches[1]);
 }
 
-function require_live_agent(PDO $pdo): array
-{
+function require_live_agent(PDO $pdo) {
     $token = bearer_agent_token();
     if (strlen($token) < 16) api_error('Agent authentication required.', 401, 'AGENT_AUTH_REQUIRED');
     $statement = $pdo->prepare(
@@ -26,8 +23,7 @@ function require_live_agent(PDO $pdo): array
     return $agent;
 }
 
-function sql_in_placeholders(array $values, string $prefix): array
-{
+function sql_in_placeholders(array $values, $prefix) {
     $params = array();
     $names = array();
     foreach (array_values($values) as $index => $value) {
@@ -38,10 +34,9 @@ function sql_in_placeholders(array $values, string $prefix): array
     return array('sql' => implode(',', $names), 'params' => $params);
 }
 
-function live_agent_repository(PDO $pdo): array
-{
+function live_agent_repository(PDO $pdo) {
     return array(
-        'recoverStale' => function (array $keys, string $before) use ($pdo): void {
+        'recoverStale' => function (array $keys, $before) use ($pdo) {
             $in = sql_in_placeholders($keys, 'stream_');
             $statement = $pdo->prepare(
                 "UPDATE live_stream_commands SET status_key = 'pending', claimed_by_agent_key = NULL, claimed_at = NULL " .
@@ -49,13 +44,16 @@ function live_agent_repository(PDO $pdo): array
             );
             $statement->execute(array_merge($in['params'], array('before' => $before)));
         },
-        'claimOldest' => function (array $keys, string $agentKey, string $claimedAt) use ($pdo): ?array {
+        'claimOldest' => function (array $keys, $agentKey, $claimedAt) use ($pdo) {
             $in = sql_in_placeholders($keys, 'stream_');
             $pdo->beginTransaction();
             try {
                 $statement = $pdo->prepare(
                     "SELECT request_key, stream_key, command_type, payload_json, status_key, claimed_by_agent_key " .
-                    "FROM live_stream_commands WHERE status_key = 'pending' AND stream_key IN (" . $in['sql'] . ') ORDER BY id LIMIT 1 FOR UPDATE'
+                    // 2026-10-12: 10분 지난 명령은 받지 않는다 — 8/5 시험 때 누른 「시작」이 두 달 동안 남아 있어
+                    // 방송 PC를 새로 켜면 그 자리에서 방송이 시작될 뻔했다
+                    "FROM live_stream_commands WHERE status_key = 'pending' AND created_at > DATE_SUB(NOW(), INTERVAL 10 MINUTE) " .
+                    "AND stream_key IN (" . $in['sql'] . ') ORDER BY id LIMIT 1 FOR UPDATE'
                 );
                 $statement->execute($in['params']);
                 $command = $statement->fetch();
@@ -80,12 +78,12 @@ function live_agent_repository(PDO $pdo): array
                     'desiredState' => (string) $command['command_type'],
                     'payload' => is_array($payload) ? $payload : array(),
                 );
-            } catch (Throwable $error) {
+            } catch (Exception $error) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 throw $error;
             }
         },
-        'findCommand' => function (string $requestKey) use ($pdo): ?array {
+        'findCommand' => function ($requestKey) use ($pdo) {
             $statement = $pdo->prepare(
                 'SELECT request_key, stream_key, status_key, claimed_by_agent_key FROM live_stream_commands WHERE request_key = :request_key'
             );
@@ -93,7 +91,7 @@ function live_agent_repository(PDO $pdo): array
             $row = $statement->fetch();
             return is_array($row) ? $row : null;
         },
-        'completeCommand' => function (string $requestKey, bool $ok, array $result) use ($pdo): void {
+        'completeCommand' => function ($requestKey, $ok, array $result) use ($pdo) {
             $message = trim((string) (isset($result['message']) ? $result['message'] : (isset($result['error']) ? $result['error'] : '')));
             $statement = $pdo->prepare(
                 'UPDATE live_stream_commands SET status_key = :status_key, completed_at = NOW(), result_json = :result_json, error_message = :error_message ' .
@@ -106,7 +104,7 @@ function live_agent_repository(PDO $pdo): array
                 'request_key' => $requestKey,
             ));
         },
-        'heartbeat' => function (string $agentKey, array $status) use ($pdo): void {
+        'heartbeat' => function ($agentKey, array $status) use ($pdo) {
             $statement = $pdo->prepare(
                 'UPDATE live_stream_agents SET status_key = :status_key, status_json = :status_json, last_seen_at = NOW() WHERE agent_key = :agent_key'
             );
@@ -119,8 +117,7 @@ function live_agent_repository(PDO $pdo): array
     );
 }
 
-function live_agent_settings(PDO $pdo, array $keys): array
-{
+function live_agent_settings(PDO $pdo, array $keys) {
     $result = array();
     foreach ($keys as $key) {
         $statement = $pdo->prepare('SELECT data_json FROM live_stream_settings WHERE setting_key = :setting_key');
@@ -134,8 +131,7 @@ function live_agent_settings(PDO $pdo, array $keys): array
     return $result;
 }
 
-function update_live_video(PDO $pdo, string $agentKey, string $streamKey, string $videoId): void
-{
+function update_live_video(PDO $pdo, $agentKey, $streamKey, $videoId) {
     $statement = $pdo->prepare('SELECT data_json FROM live_stream_settings WHERE setting_key = :setting_key');
     $statement->execute(array('setting_key' => $streamKey));
     $json = $statement->fetchColumn();
@@ -154,8 +150,7 @@ function update_live_video(PDO $pdo, string $agentKey, string $streamKey, string
         ->execute(array('video_id' => $videoId === '' ? null : $videoId, 'agent_key' => $agentKey));
 }
 
-function resolve_youtube_live_video(string $channelId, array $apiKeys): string
-{
+function resolve_youtube_live_video($channelId, array $apiKeys) {
     if (preg_match('/\AUC[A-Za-z0-9_-]{22}\z/D', $channelId) !== 1) {
         throw new InvalidArgumentException('Invalid YouTube channel ID.');
     }
@@ -185,7 +180,7 @@ function resolve_youtube_live_video(string $channelId, array $apiKeys): string
     return '';
 }
 
-run_api(function (): void {
+run_api(function () {
     require_method('POST');
     $input = json_input();
     $action = request_action($input);
