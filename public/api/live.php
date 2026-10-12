@@ -100,6 +100,28 @@ run_api(function () {
         json_response(array('ok' => true, 'live' => public_live_payload($pdo, $streamKey)));
     }
 
+    // 2026-10-12 교인앱 서버(Worker)가 매분: 4부서 방송 상태와 영상 ID(비밀번호 걸린 방송도 — 앱은 승인 교인만 본다).
+    // http 라 공유 키는 오지 않고 서명만 확인한다(_app_bridge.php)
+    if ($action === 'app-status') {
+        require_method('GET');
+        require_once __DIR__ . '/_app_bridge.php';
+        if (!app_bridge_signed('live', isset($_GET['ts']) ? $_GET['ts'] : '', isset($_GET['sig']) ? $_GET['sig'] : '')) {
+            api_error('Forbidden.', 403, 'FORBIDDEN');
+        }
+        $streams = array();
+        foreach (allowed_live_stream_keys() as $key) {
+            $payload = public_live_payload($pdo, $key);
+            $setting = read_live_setting($pdo, $key);
+            $streams[] = array(
+                'key' => $key,
+                'title' => (string) $setting['title'],
+                'onAir' => (bool) $payload['onAir'],
+                'videoId' => $payload['onAir'] ? (string) $setting['currentVideoId'] : '',
+            );
+        }
+        json_response(array('ok' => true, 'streams' => $streams));
+    }
+
     if ($action === 'unlock') {
         require_method('POST');
         $streamKey = require_live_stream_key($input);

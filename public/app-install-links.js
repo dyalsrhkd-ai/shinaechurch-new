@@ -21,6 +21,7 @@
       // 「비상용 계정 관리」 화면이면 관리자 계정 요청을 홈페이지 계정 쪽으로(scope=emergency)
       if (typeof input === 'string' && input.includes('/api/admin-users.php') && isEmergency()) input += (input.includes('?') ? '&' : '?') + 'scope=emergency'
       const response = await original(input, init)
+      noticeToApp(input, init, response)
       try {
         const url = String(input && input.url ? input.url : input)
         if (/\/api\/auth\.php\?action=logout/.test(url)) sessionStorage.removeItem(SESSION_KEY)
@@ -36,6 +37,47 @@
     wrapped.churchWrapped = true
     window.fetch = wrapped
   }
+  // 1.0.7 공지 웹 → 앱: 「새 공지 등록」에 ☐ 교인 앱에도. 등록이 성공하면 같은 제목·내용을 앱 공지로(그 관리자 앱 계정 이름으로)
+  function noticeToApp(input, init, response) {
+    try {
+      const url = String(input && input.url ? input.url : input)
+      if (!/\/api\/content\.php\?.*action=create/.test(url) || !response.ok || !init || typeof init.body !== 'string') return
+      const sent = JSON.parse(init.body)
+      const box = document.getElementById('church-notice-to-app')
+      if (!sent || sent.collection !== 'notices' || !box || !box.checked) return
+      const headers = new Headers(init.headers || {})
+      const say = (text, ok) => { const m = document.getElementById('church-notice-to-app-msg'); if (m) { m.textContent = text; m.style.color = ok ? '#15803d' : '#b91c1c' } }
+      say('교인 앱에 올리는 중…', true)
+      box.checked = false
+      fetch('/api/app-notice.php?action=to-app', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': headers.get('X-CSRF-Token') || '' }, body: JSON.stringify({ title: sent.data && sent.data.title, content: sent.data && sent.data.content }) })
+        .then(r => r.json().then(d => [r.ok, d]))
+        .then(([ok, d]) => say(ok ? '교인 앱에도 올렸습니다. (알림도 갑니다)' : `교인 앱에는 올리지 못했습니다: ${(d && d.error && d.error.message) || '다시 해 주세요.'}`, ok))
+        .catch(() => say('교인 앱에는 올리지 못했습니다. 인터넷 연결을 확인해 주세요.', false))
+    } catch { /* 홈페이지 공지 등록은 그대로 */ }
+  }
+  function attachNoticeToApp() {
+    if (route() !== '#/admin/notices') return
+    const title = [...document.querySelectorAll('main p')].find(p => p.textContent.trim() === '새 공지 등록')
+    const box = title && title.parentElement
+    if (!box || box.querySelector('#church-notice-to-app')) return
+    const row = document.createElement('div')
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:12px;font-size:.88rem;color:#0f2040;'
+    const label = document.createElement('label')
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;'
+    const check = document.createElement('input')
+    check.type = 'checkbox'; check.id = 'church-notice-to-app'
+    check.style.cssText = 'width:18px;height:18px;'
+    label.append(check, '교인 앱에도 올리기')
+    const hint = document.createElement('span')
+    hint.textContent = '제목·내용만 올라가고 교인들에게 알림이 갑니다(첨부 파일은 홈페이지에만). 앱 관리자 계정으로 로그인했을 때만 됩니다.'
+    hint.style.cssText = 'color:#64748b;font-size:.8rem;'
+    const msg = document.createElement('span')
+    msg.id = 'church-notice-to-app-msg'
+    msg.style.cssText = 'flex-basis:100%;font-weight:700;'
+    row.append(label, hint, msg)
+    box.append(row)
+  }
+
   const loadPanel = () => panelLoading || (panelLoading = new Promise((done, fail) => {
     if (window.ChurchAppAdmin) return done()
     const script = document.createElement('script')
@@ -261,7 +303,7 @@
     setTimeout(() => { go(target); setTimeout(() => { delete document.documentElement.dataset.churchSwitching; update() }, 60) }, 30)
   }
 
-  function update() { reopenAccounts(); attachLinks(); attachMenu(); attachAppView(); attachLiveView(); attachAccountsNote() }
+  function update() { reopenAccounts(); attachLinks(); attachMenu(); attachAppView(); attachLiveView(); attachAccountsNote(); attachNoticeToApp() }
   new MutationObserver(update).observe(document.body, { childList: true, subtree: true })
   window.addEventListener('hashchange', update)
   update()
